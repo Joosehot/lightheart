@@ -241,7 +241,7 @@ def test_realtime_voice_session_keeps_the_talk_and_the_cards(tmp_path):
     voice = FakeVoice()
     c = TestClient(create_app(provider=FakeProvider([]), db_path=str(tmp_path / "t.db"), voice=voice))
     s = c.post("/api/voice/session", json={}).json()
-    assert s == {"key": "ek_fake", "model": "fake-realtime"}
+    assert s == {"engine": "openai", "key": "ek_fake", "model": "fake-realtime"}
     assert voice.session["tools"][0]["name"] == "update_board" and "aloud" in voice.session["instructions"]
     board = c.get("/api/board").json()
     ids = {"board_id": board["board"]["id"], "chat_id": board["chat"]["id"]}
@@ -255,9 +255,18 @@ def test_realtime_voice_session_keeps_the_talk_and_the_cards(tmp_path):
     assert any(n["title"] == "Majakka" for n in after["notes"])
 
 
+def test_gemini_schema_has_no_type_lists_or_null_enums():
+    from app.llm.anthropic import TOOL
+    from app.voice import gemini_schema
+
+    s = gemini_schema(TOOL["input_schema"])
+    sticker = s["properties"]["ops"]["items"]["properties"]["note"]["properties"]["sticker"]
+    assert sticker["type"] == "string" and sticker["nullable"] is True and None not in sticker["enum"]
+
+
 def test_no_openai_key_means_browser_voice(tmp_path):
     app = create_app(provider=FakeProvider([]), db_path=str(tmp_path / "t.db"))
-    app.state.voice = None
+    app.state.voice = app.state.live = None
     c = TestClient(app)
     assert c.get("/api/voice").json() == {"engine": "browser"}
     assert c.post("/api/voice/speak", json={"text": "x"}).status_code == 400

@@ -68,7 +68,23 @@ def default_voice():
     return OpenAIVoice()
 
 
-def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, maker=None, image_dir: str = None, draw_now=False, voice=None) -> FastAPI:
+def default_live():
+    """The live voice: Gemini when its key is set (cheapest), else OpenAI; LIGHTHEART_VOICE_ENGINE picks."""
+    engine = os.environ.get("LIGHTHEART_VOICE_ENGINE", "").strip().lower()
+    if not engine:
+        engine = "gemini" if os.environ.get("GEMINI_API_KEY") else "openai" if os.environ.get("OPENAI_API_KEY") else ""
+    if engine == "gemini" and os.environ.get("GEMINI_API_KEY"):
+        from .voice import GeminiLive
+
+        return GeminiLive()
+    if engine == "openai" and os.environ.get("OPENAI_API_KEY"):
+        from .voice import OpenAIVoice
+
+        return OpenAIVoice()
+    return None
+
+
+def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, maker=None, image_dir: str = None, draw_now=False, voice=None, live=None) -> FastAPI:
     """draw_now: draw a book's pictures before answering (tests); otherwise they are drawn in the background."""
     app = FastAPI(title="Lightheart")
     db = DB(db_path or os.environ.get("LIGHTHEART_DB", "lightheart.db"))
@@ -80,6 +96,8 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
     images.mkdir(parents=True, exist_ok=True)
     app.state.tasks = set()
     app.state.voice = voice if voice is not None else default_voice()
+    # the live voice mode; a voice given (tests) is the live one too
+    app.state.live = live if live is not None else (voice if voice is not None else default_live())
 
     # ---- ideas (boards) and their chats ---------------------------------------------------------
 
@@ -304,15 +322,15 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
 
     @app.get("/api/voice")
     def voice_engine():
-        return {"engine": "openai" if app.state.voice else "browser"}
+        return {"engine": app.state.live.engine if app.state.live else "browser"}
 
     # realtime voice: the browser talks to OpenAI directly; here the key is minted, and what was said
     # and the cards it makes are kept in the chat and on the board like typed ones
 
     @app.post("/api/voice/session")
     async def voice_session(body: VoiceSessionIn):
-        if not app.state.voice:
-            raise HTTPException(400, "Voice mode needs OPENAI_API_KEY in .env.")
+        if not app.state.live:
+            raise HTTPException(400, "Voice mode needs GEMINI_API_KEY or OPENAI_API_KEY in .env.")
         from .llm.anthropic import TOOL
         from .llm.prompts import board_context, voice_prompt
 
@@ -322,11 +340,11 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
         if history:
             instructions += "\n\nThe conversation so far (typed or spoken):\n" + history
         props = TOOL["input_schema"]["properties"]
-        tool = {"type": "function", "name": "update_board",
+        tool = {"name": "update_board",
                 "description": "Change the user's idea board: create cards, update one, or nothing.",
                 "parameters": {"type": "object", "properties": {"ops": props["ops"]}, "required": ["ops"]}}
         try:
-            return await app.state.voice.realtime_key(instructions, [tool])
+            return await app.state.live.realtime_key(instructions, tool)
         except Exception as e:
             log.exception("realtime session failed")
             raise HTTPException(502, f"Couldn't start voice mode ({e}).")
