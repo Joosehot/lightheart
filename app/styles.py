@@ -3,7 +3,7 @@
 The AI picks only keys from here; the server repairs anything else; the page renders only these.
 """
 
-# ASSUMPTION: 6 palettes in v0. Each works with dark ink.
+# ASSUMPTION: 6 soft palettes and 6 vibrant ones in v0. Each works with dark ink.
 PALETTES = {
     "peach": {"paper": "#ffe9dc", "tape": "#f6b89a", "highlight": "#ffb08a", "ink": "#3d2a22", "accent": "#e07a52"},
     "sage": {"paper": "#e7f0e1", "tape": "#b7cfa8", "highlight": "#b9dba3", "ink": "#24321f", "accent": "#6f9a5b"},
@@ -11,7 +11,15 @@ PALETTES = {
     "butter": {"paper": "#fff6d1", "tape": "#f5dc7a", "highlight": "#ffe066", "ink": "#3a3218", "accent": "#d9a91a"},
     "sky": {"paper": "#e3f1fb", "tape": "#a9d3f0", "highlight": "#9fd6ff", "ink": "#1d2f3d", "accent": "#4b98cf"},
     "rose": {"paper": "#fde6ec", "tape": "#f3b3c4", "highlight": "#ffadc2", "ink": "#3d1f28", "accent": "#d9688a"},
+    # vibrant: plain bright sticky notes, still with dark ink
+    "sunflower": {"paper": "#ffd93b", "tape": "#5ec8f2", "highlight": "#ffffff", "ink": "#2a2208", "accent": "#e0a800"},
+    "tangerine": {"paper": "#ffa94d", "tape": "#7b6cf6", "highlight": "#fff3b0", "ink": "#2e1806", "accent": "#e8590c"},
+    "coral": {"paper": "#ff8787", "tape": "#ffe066", "highlight": "#fff3b0", "ink": "#2e0d0d", "accent": "#e03131"},
+    "magenta": {"paper": "#f783ac", "tape": "#69db7c", "highlight": "#fff3b0", "ink": "#2e0a1a", "accent": "#d6336c"},
+    "lime": {"paper": "#a9e34b", "tape": "#f783ac", "highlight": "#ffffff", "ink": "#1b2a06", "accent": "#5c940d"},
+    "aqua": {"paper": "#3bc9db", "tape": "#ffd43b", "highlight": "#ffffff", "ink": "#06262b", "accent": "#0c8599"},
 }
+VIBRANT = ("sunflower", "tangerine", "coral", "magenta", "lime", "aqua")
 
 # title fonts (handwriting); the body is always the calm, readable one
 FONTS = {

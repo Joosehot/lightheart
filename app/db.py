@@ -67,6 +67,13 @@ class DB:
         self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        # columns added after the first version: put into an older database file
+        for table, col, decl in (("books", "art_style", "text not null default ''"), ("books", "world", "text not null default ''"),
+                                 ("panels", "shot", "text not null default ''"), ("panels", "setting", "text not null default ''"),
+                                 ("panels", "action", "text not null default ''")):
+            have = {r["name"] for r in self.conn.execute(f"pragma table_info({table})")}
+            if col not in have:
+                self.conn.execute(f"alter table {table} add column {col} {decl}")
         self.conn.commit()
 
     # ---- notes -------------------------------------------------------------------------------
@@ -121,14 +128,15 @@ class DB:
 
     # ---- comic books -------------------------------------------------------------------------
 
-    def add_book(self, script, direction=""):
+    def add_book(self, script, direction="", art_style=""):
         bid = new_id()
-        self.conn.execute("insert into books values (?, ?, ?, ?, ?)", (bid, script.title, json.dumps(script.characters, ensure_ascii=False), direction, now()))
+        self.conn.execute("insert into books (id, title, characters, direction, created_at, art_style, world) values (?, ?, ?, ?, ?, ?, ?)",
+                          (bid, script.title, json.dumps(script.characters, ensure_ascii=False), direction, now(), art_style, script.world))
         for p, panels in enumerate(script.pages):
             for i, pn in enumerate(panels):
                 self.conn.execute(
-                    "insert into panels (id, book_id, page, idx, scene, caption, bubbles) values (?, ?, ?, ?, ?, ?, ?)",
-                    (new_id(), bid, p, i, pn["scene"], pn["caption"], json.dumps(pn["bubbles"], ensure_ascii=False)),
+                    "insert into panels (id, book_id, page, idx, scene, caption, bubbles, shot, setting, action) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    (new_id(), bid, p, i, pn["scene"], pn["caption"], json.dumps(pn["bubbles"], ensure_ascii=False), pn.get("shot", ""), pn.get("setting", ""), pn.get("action", "")),
                 )
         self.conn.commit()
         return bid

@@ -28,10 +28,13 @@ def test_a_book_from_the_board(tmp_path):
     b = c.get(f"/api/books/{b['id']}").json()
     assert all(p["status"] == "done" and p["image"] for p in b["panels"])
     assert c.get(f"/images/{b['panels'][0]['image']}").status_code == 200
-    assert all("yellow raincoat" in p and "No text" in p for p in maker.prompts)
-    # the board's cards went to the writer, with the wish
-    ideas, direction, pages = writer.calls[0]
-    assert "Majakanvartija" in ideas and direction == "iltasatu" and pages == 2
+    for p in maker.prompts:
+        # the picture instructions: the style, the world, the shot, the setting, the character's look, no words
+        assert "Art style:" in p and "harbour town" in p and "Shot: wide shot" in p and "Setting: the harbour" in p
+        assert "yellow raincoat" in p and "No text" in p and "Composition:" in p
+    # the board's cards went to the writer, with the wish and the art style
+    ideas, direction, pages, art = writer.calls[0]
+    assert "Majakanvartija" in ideas and direction == "iltasatu" and pages == 2 and "watercolor" in art
     shelf = c.get("/api/books").json()
     assert shelf[0]["done"] == 6 and shelf[0]["cover"]
 
@@ -85,3 +88,35 @@ def test_estimate_and_delete(tmp_path):
     assert img.exists()
     assert c.delete(f"/api/books/{b['id']}").status_code == 200
     assert not img.exists() and c.get("/api/books").json() == []
+
+
+def test_the_user_picks_the_ideas_and_the_art(tmp_path):
+    writer, maker = comics.FakeScriptWriter(), comics.FakeImageMaker()
+    c, _ = make(tmp_path, writer, maker)
+    other = c.post("/api/notes", json={"title": "Avaruuskissa", "body": "Kissa joka lentää kuuhun."}).json()
+    c.post("/api/books", json={"pages": 1, "note_ids": [other["id"]], "art_style": "manga"})
+    ideas, _, _, art = writer.calls[0]
+    assert "Avaruuskissa" in ideas and "Majakanvartija" not in ideas
+    assert "manga" in art and "manga" in maker.prompts[0]
+    # none picked, only a wish: no cards go to the writer
+    c.post("/api/books", json={"pages": 1, "note_ids": [], "direction": "a story about rain", "art_style": "thick brush lines in blue ink"})
+    ideas, direction, _, art = writer.calls[1]
+    assert ideas == "(no cards)" and direction == "a story about rain" and art == "thick brush lines in blue ink"
+    # none picked and no wish: refused
+    assert c.post("/api/books", json={"pages": 1, "note_ids": []}).status_code == 400
+
+
+def test_an_older_database_gets_the_new_columns(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    con = sqlite3.connect(path)
+    con.executescript("create table books (id text primary key, title text not null, characters text not null default '[]', direction text not null default '', created_at text not null);"
+                      "create table panels (id text primary key, book_id text not null, page integer not null, idx integer not null, scene text not null, caption text not null default '', bubbles text not null default '[]', image text, status text not null default 'waiting', error text);")
+    con.commit()
+    con.close()
+    from app.db import DB
+
+    db = DB(str(path))
+    cols = {r["name"] for r in db.conn.execute("pragma table_info(panels)")}
+    assert {"shot", "setting", "action"} <= cols

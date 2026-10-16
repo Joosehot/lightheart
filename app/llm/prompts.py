@@ -21,7 +21,7 @@ Cards:
 - Prefer updating an existing card over making a near-duplicate. The existing cards are listed below with their ids; when the user develops one of them, update it.
 - A title of at most {styles.MAX_TITLE_WORDS} words, a body of at most about {styles.MAX_BODY_WORDS} words, in the user's own voice and language.
 - Highlight 1-{styles.MAX_HIGHLIGHTS} key phrases, each copied exactly from the body.
-- Choose the style to match the mood: a melancholy scene a cool palette (sky, lavender); a funny hook butter and a playful sticker; growth or nature sage; warmth or love peach or rose.
+- Choose the style to match the mood: a melancholy scene a cool palette (sky, lavender); a funny hook butter and a playful sticker; growth or nature sage; warmth or love peach or rose. The vibrant ones ({", ".join(styles.VIBRANT)}) are bold, plain sticky notes: for energetic, urgent, loud or very fun ideas, a to-do or a plan.
 - At most {styles.MAX_OPS_PER_TURN} operations per turn.
 - Use only these values:
   palettes: {palettes}

@@ -56,3 +56,4 @@ class BookIn(BaseModel):
     note_ids: Optional[list[str]] = None
     direction: str = ""
     pages: int = 4
+    art_style: str = ""  # a preset key (comics.ART_STYLES) or the user's own words

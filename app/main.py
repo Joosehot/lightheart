@@ -140,6 +140,12 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
             app.state.tasks.add(t)
             t.add_done_callback(app.state.tasks.discard)
 
+    @app.get("/api/books/art-styles")
+    def art_styles():
+        from .comics import ART_STYLES, DEFAULT_ART
+
+        return {"default": DEFAULT_ART, "styles": ART_STYLES}
+
     @app.get("/api/books/estimate")
     def book_estimate(pages: int = 4):
         from .comics import MAX_PAGES, estimate
@@ -155,20 +161,23 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
         if app.state.maker is None:
             raise HTTPException(400, "Set OPENAI_API_KEY in .env to draw the pictures.")
         notes = db.notes()
-        if body.note_ids:
+        if body.note_ids is not None:  # the cards the user picked (none picked: none)
             notes = [n for n in notes if n.id in set(body.note_ids)]
         if not notes and not body.direction.strip():
             raise HTTPException(400, "The board is empty: add an idea first, or say what the story is about.")
+        from .comics import art_style_text
+
         ideas = "\n".join(f"- {n.title}: {n.body}" for n in notes) or "(no cards)"
         pages = max(1, min(MAX_PAGES, body.pages))
+        art = body.art_style.strip()[:400]
         try:
-            script = await app.state.writer.write(ideas, body.direction.strip(), pages)
+            script = await app.state.writer.write(ideas, body.direction.strip(), pages, art_style_text(art))
         except Exception as e:
             log.exception("writing the script failed")
             raise HTTPException(502, f"The story couldn't be written ({type(e).__name__}). Try again?")
         if script is None:
             raise HTTPException(502, "The story came back empty. Try again?")
-        book_id = db.add_book(script, body.direction.strip())
+        book_id = db.add_book(script, body.direction.strip(), art)
         await drawing(book_id)
         return db.book(book_id)
 

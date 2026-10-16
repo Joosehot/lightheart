@@ -38,12 +38,16 @@
     <button class="close" data-close aria-label="Close">×</button>
     <h2>Make a comic book</h2>
     <p class="muted">Your ideas become a short comic you can read: a story, panels, speech bubbles, real pictures.</p>
-    <label class="field"><span>From</span>
-      <select id="bookFrom"></select>
-    </label>
-    <label class="field"><span>What should it be like? <em>(optional)</em></span>
+    <div class="field"><span>Which ideas? <button type="button" class="link" id="pickAll">all</button> · <button type="button" class="link" id="pickNone">none</button></span>
+      <div class="picks" id="bookPicks"></div>
+    </div>
+    <label class="field"><span>The story: what should it be like? <em>(optional)</em></span>
       <textarea id="bookWish" rows="2" placeholder="e.g. a quiet bedtime story, or a funny one with a twist at the end"></textarea>
     </label>
+    <div class="field"><span>The pictures: art style</span>
+      <div class="arts" id="bookArts"></div>
+      <textarea id="bookArt" rows="2" placeholder="or describe your own: e.g. moody blue ink with gold highlights, thick brush lines, 1970s sci-fi paperback"></textarea>
+    </div>
     <label class="field"><span>Pages</span>
       <input type="range" id="bookPages" min="1" max="6" value="4"> <b id="bookPagesN">4</b>
     </label>

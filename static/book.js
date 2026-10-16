@@ -14,17 +14,33 @@
 
   // ---- making one -----------------------------------------------------------------------------
 
+  let ART = null;
+  let art = "watercolor"; // a preset key, or "" when the user writes their own
+
   async function openMaker() {
-    const from = $("bookFrom");
-    const all = [...notes.values()];
-    from.innerHTML = `<option value="">the whole board (${all.length} card${all.length === 1 ? "" : "s"})</option>`
-      + (selected && notes.get(selected) ? `<option value="${selected}">just “${esc(notes.get(selected).title || "this card")}”</option>` : "");
-    if (selected && notes.get(selected)) from.value = selected;
+    // the board's cards, each with a checkbox; the selected card (or every card) ticked
+    const all = [...notes.values()].sort((a, b) => a.created_at.localeCompare(b.created_at));
+    $("bookPicks").innerHTML = all.length ? all.map(n => {
+      const p = STYLES.palettes[n.palette] || STYLES.palettes.butter;
+      const on = selected ? n.id === selected : true;
+      return `<label class="pick" style="--pick:${p.paper};--pick-edge:${p.accent}"><input type="checkbox" value="${n.id}" ${on ? "checked" : ""}>
+        <span><b>${esc(n.title || "Untitled")}</b><small>${esc((n.body || "").slice(0, 90))}</small></span></label>`;
+    }).join("") : `<div class="muted">The board is empty: write what the story is about below.</div>`;
+    if (!ART) ART = await api("GET", "/api/books/art-styles");
+    renderArts();
     $("bookErr").textContent = "";
     $("bookMaker").hidden = false;
     updateEstimate();
     renderShelf();
   }
+
+  function renderArts() {
+    const names = { watercolor: "Warm watercolor", manga: "Manga", "ligne-claire": "Ligne claire", noir: "Noir", "picture-book": "Picture book" };
+    $("bookArts").innerHTML = Object.keys(ART.styles).map(k => `<button type="button" class="art ${art === k ? "on" : ""}" data-art="${k}" title="${esc(ART.styles[k])}">${names[k] || k}</button>`).join("");
+    $("bookArts").querySelectorAll("[data-art]").forEach(b => b.onclick = () => { art = b.dataset.art; $("bookArt").value = ""; renderArts(); });
+  }
+
+  function picked() { return [...$("bookPicks").querySelectorAll("input:checked")].map(i => i.value); }
 
   async function updateEstimate() {
     const n = +$("bookPages").value;
@@ -40,9 +56,15 @@
     go.disabled = true;
     go.textContent = "Writing the story…";
     $("bookErr").textContent = "";
-    const id = $("bookFrom").value;
+    const ids = picked();
+    if (!ids.length && !$("bookWish").value.trim()) {
+      $("bookErr").textContent = "Pick at least one idea, or write what the story is about.";
+      go.disabled = false; go.textContent = "Write and draw it";
+      return;
+    }
+    const own = $("bookArt").value.trim();
     try {
-      const r = await fetch("/api/books", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note_ids: id ? [id] : null, direction: $("bookWish").value, pages: +$("bookPages").value }) });
+      const r = await fetch("/api/books", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note_ids: ids, direction: $("bookWish").value, pages: +$("bookPages").value, art_style: own || art }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.detail || "Something went wrong.");
       $("bookMaker").hidden = true;
@@ -150,6 +172,9 @@
   // ---- wiring ---------------------------------------------------------------------------------
 
   $("bookBtn").onclick = openMaker;
+  $("pickAll").onclick = () => $("bookPicks").querySelectorAll("input").forEach(i => i.checked = true);
+  $("pickNone").onclick = () => $("bookPicks").querySelectorAll("input").forEach(i => i.checked = false);
+  $("bookArt").oninput = () => { if ($("bookArt").value.trim()) { art = ""; renderArts(); } else if (!art) { art = "watercolor"; renderArts(); } };
   $("bookPages").oninput = updateEstimate;
   $("bookGo").onclick = makeBook;
   document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => { $("bookMaker").hidden = true; });
