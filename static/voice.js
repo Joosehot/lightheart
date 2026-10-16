@@ -1,209 +1,203 @@
-// Voice: one button, on or off. On: it listens, sends what you said, says the reply aloud and
-// listens again, like a call. Off: everything stops.
-// With an OpenAI key on the server: the microphone is recorded here, transcribed there (accurate, also
-// Finnish) and the reply is spoken in a natural voice. Without one: the browser's own (free) speech.
-// Recording stops by itself after a moment of silence. The language is the one you speak: the
-// transcriber detects it, and the reply is spoken in the reply's own language. Uses app.js's send()
-// and its "lightheart:reply" event.
+// Voice: one button, on or off.
+// With an OpenAI key on the server it is OpenAI's realtime voice mode (the voice ChatGPT talks with):
+// the browser talks straight to gpt-realtime over WebRTC with a short-lived key from /api/voice/session.
+// It hears you, answers aloud, can be interrupted, and puts cards on the board with update_board.
+// What both of you said is written into the chat and kept like typed messages.
+// Without a key: the browser's own (free) speech, through the typed chat.
+// Uses app.js's CUR, addMessage, notes, renderCard, revealCard, send and renderSidebar.
 
 (() => {
   const $ = id => document.getElementById(id);
-  const BrowserRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-  const LANGS = { fi: "fi-FI", en: "en-US" };
   let voiceOn = false;
   let engine = "browser";
-  let listening = false;
-  let stopNow = null;   // stops the current listening
-  let playing = null;   // the reply being played
-  // which engine the server has; nothing listens or speaks before this is known
   const ready = fetch("/api/voice").then(r => r.json()).then(j => { engine = j.engine; }).catch(() => {});
 
   function note(text) { $("voiceNote").textContent = text || ""; }
-
-  function paint() {
+  function paint(state) {
     $("voiceMode").textContent = voiceOn ? "Voice on" : "Voice off";
     $("voiceMode").classList.toggle("on", voiceOn);
-    $("voiceMode").classList.toggle("listening", listening);
+    $("voiceMode").classList.toggle("listening", state === "listening");
   }
 
-  // Finnish if the text looks Finnish (its letters or common words), else English
-  function langOf(text) {
-    if (/[äöå]/i.test(text) || /\b(on|ja|ei|se|mitä|että|kuin|minä|sinä|tämä)\b/i.test(text)) return "fi";
-    if (/\b(the|and|is|you|what|this|that)\b/i.test(text)) return "en";
-    return (navigator.language || "fi").startsWith("en") ? "en" : "fi";
-  }
+  // ---- OpenAI realtime ------------------------------------------------------------------------------
 
-  function stopSpeaking() {
-    if (playing) { playing.pause(); playing = null; }
-    if ("speechSynthesis" in window) speechSynthesis.cancel();
-  }
+  let rt = null; // { pc, dc, mic, audio, bubbles, pendingUser }
 
-  // ---- listening: recorded here, transcribed on the server ------------------------------------
+  async function startRealtime() {
+    note("Connecting…");
+    const s = await fetch("/api/voice/session", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ board_id: CUR.board.id, chat_id: CUR.chat.id }),
+    });
+    const sj = await s.json();
+    if (!s.ok) throw new Error(sj.detail || "the session failed");
 
-  async function listenServer() {
-    let stream;
-    try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
-    catch (e) { note("The microphone is blocked: allow it in the browser."); turnOff(); return; }
-    if (!voiceOn) { stream.getTracks().forEach(tr => tr.stop()); return; }
-    const type = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4"].find(t => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
-    const rec = new MediaRecorder(stream, type ? { mimeType: type } : undefined);
-    const parts = [];
-    rec.ondataavailable = e => { if (e.data.size) parts.push(e.data); };
+    let mic;
+    try { mic = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+    catch (e) { throw new Error("the microphone is blocked: allow it in the browser"); }
 
-    // silence: once speech has been heard, 1.3 s of quiet ends the recording
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const an = ctx.createAnalyser();
-    an.fftSize = 1024;
-    ctx.createMediaStreamSource(stream).connect(an);
-    const buf = new Uint8Array(an.fftSize);
-    let heard = false, cancelled = false, quietSince = performance.now(), started = performance.now();
-    const tick = setInterval(() => {
-      an.getByteTimeDomainData(buf);
-      let sum = 0;
-      for (const v of buf) sum += (v - 128) * (v - 128);
-      const level = Math.sqrt(sum / buf.length);
-      const t = performance.now();
-      if (level > 6) { heard = true; quietSince = t; }
-      if ((heard && t - quietSince > 1300) || t - started > 60000) finish();
-      else if (!heard && t - started > 15000) { cancelled = true; finish(); }
-    }, 100);
-
-    let done = false;
-    function finish() {
-      if (done) return;
-      done = true;
-      clearInterval(tick);
-      if (rec.state !== "inactive") rec.stop();
-    }
-    stopNow = () => { cancelled = true; finish(); };
-    rec.onstop = async () => {
-      stream.getTracks().forEach(tr => tr.stop());
-      ctx.close();
-      listening = false; stopNow = null; paint();
-      if (!voiceOn) return;
-      if (cancelled || !heard || !parts.length) { note("I didn't hear anything. Voice is off."); turnOff(); return; }
-      note("Writing down what you said…");
-      const fd = new FormData();
-      fd.append("audio", new Blob(parts, { type: rec.mimeType || "audio/webm" }), type.includes("mp4") ? "speech.mp4" : "speech.webm");
-      fd.append("lang", "");
-      try {
-        const r = await fetch("/api/voice/transcribe", { method: "POST", body: fd });
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.detail || "failed");
-        note("");
-        if (j.text) send(j.text);
-        else { note("I didn't catch that."); listen(); }
-      } catch (e) { note(e.message); turnOff(); }
+    const pc = new RTCPeerConnection();
+    const audio = new Audio();
+    audio.autoplay = true;
+    pc.ontrack = e => { audio.srcObject = e.streams[0]; };
+    pc.addTrack(mic.getTracks()[0], mic);
+    const dc = pc.createDataChannel("oai-events");
+    rt = { pc, dc, mic, audio, bubbles: new Map(), pendingUser: Promise.resolve() };
+    dc.onmessage = e => { try { onEvent(JSON.parse(e.data)); } catch (err) { console.error("voice event:", err); } };
+    dc.onopen = () => { note("Talk: I'm listening."); paint("listening"); };
+    pc.onconnectionstatechange = () => {
+      if (voiceOn && ["failed", "disconnected", "closed"].includes(pc.connectionState)) { note("The voice connection dropped."); turnOff(); }
     };
-    listening = true;
-    note("Listening…");
-    paint();
-    rec.start(250);
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    const r = await fetch(`https://api.openai.com/v1/realtime/calls?model=${encodeURIComponent(sj.model)}`, {
+      method: "POST", body: offer.sdp,
+      headers: { Authorization: `Bearer ${sj.key}`, "Content-Type": "application/sdp" },
+    });
+    if (!r.ok) throw new Error(`OpenAI said ${r.status}`);
+    await pc.setRemoteDescription({ type: "answer", sdp: await r.text() });
   }
 
-  // ---- listening: the browser's own -------------------------------------------------------------
+  function stopRealtime() {
+    if (!rt) return;
+    try { rt.dc.close(); } catch (e) {}
+    try { rt.pc.close(); } catch (e) {}
+    rt.mic.getTracks().forEach(t => t.stop());
+    rt.audio.srcObject = null;
+    rt = null;
+  }
+
+  function sendEvent(ev) { if (rt && rt.dc.readyState === "open") rt.dc.send(JSON.stringify(ev)); }
+
+  // kept in the chat in the order said: the reply waits for the words it answers
+  function keep(role, content) {
+    return fetch("/api/voice/turn", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role, content, board_id: CUR.board.id, chat_id: CUR.chat.id }),
+    }).then(r => r.json()).then(j => {
+      if (j.chat && j.chat.title !== CUR.chat.title) { CUR.chat = j.chat; window.renderSidebar && renderSidebar(); }
+    }).catch(() => {});
+  }
+
+  async function onEvent(ev) {
+    switch (ev.type) {
+      case "input_audio_buffer.speech_started":
+        paint("listening"); note("Listening…");
+        break;
+      case "input_audio_buffer.committed": {
+        // your words get their place in the chat now, the text when it is written down
+        const el = addMessage("user", "…");
+        let done;
+        const p = new Promise(res => { done = res; setTimeout(res, 8000); });
+        rt.bubbles.set(ev.item_id, { el, done });
+        const before = rt.pendingUser;
+        rt.pendingUser = before.then(() => p);
+        paint(); note("");
+        break;
+      }
+      case "conversation.item.input_audio_transcription.completed":
+      case "conversation.item.input_audio_transcription.failed": {
+        const b = rt.bubbles.get(ev.item_id);
+        const text = (ev.transcript || "").trim();
+        if (b) {
+          rt.bubbles.delete(ev.item_id);
+          if (text) { b.el.textContent = text; await keep("user", text); } else b.el.remove();
+          b.done();
+        }
+        break;
+      }
+      case "response.output_audio_transcript.done": {
+        const text = (ev.transcript || "").trim();
+        if (!text) break;
+        addMessage("assistant", text);
+        const wait = rt.pendingUser;
+        await wait;
+        keep("assistant", text);
+        break;
+      }
+      case "response.done": {
+        const out = (ev.response && ev.response.output) || [];
+        const calls = out.filter(o => o.type === "function_call" && o.name === "update_board");
+        if (!calls.length) break;
+        const spoke = out.some(o => o.type === "message");
+        await rt.pendingUser;
+        for (const c of calls) {
+          let result = { ok: false };
+          try {
+            const args = JSON.parse(c.arguments || "{}");
+            const r = await fetch("/api/voice/ops", {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ops: args.ops || [], board_id: CUR.board.id, chat_id: CUR.chat.id }),
+            });
+            const j = await r.json();
+            for (const n of j.notes_changed || []) {
+              const how = notes.has(n.id) ? "changed" : "enter";
+              notes.set(n.id, n);
+              renderCard(n, how);
+            }
+            if ((j.notes_changed || []).length) {
+              setTimeout(() => revealCard(j.notes_changed[0].id), 80);
+              window.dispatchEvent(new CustomEvent("lightheart:reply", { detail: { reply: "" } })); // views redraw
+            }
+            result = { ok: true, changed: (j.notes_changed || []).map(n => ({ id: n.id, title: n.title })), board: j.board };
+          } catch (e) { result = { ok: false, error: String(e) }; }
+          sendEvent({ type: "conversation.item.create", item: { type: "function_call_output", call_id: c.call_id, output: JSON.stringify(result) } });
+        }
+        // it already spoke in the same turn: no second answer; otherwise it says what it did
+        if (!spoke) sendEvent({ type: "response.create" });
+        break;
+      }
+      case "error":
+        console.error("voice:", ev.error);
+        note((ev.error && ev.error.message) || "Voice error.");
+        break;
+    }
+  }
+
+  // ---- without a key: the browser's own speech, through the typed chat ---------------------------
+
+  const BrowserRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let rec = null;
 
   function listenBrowser() {
-    if (!BrowserRec) { note("Voice needs Chrome or Edge (or an OpenAI key on the server)."); turnOff(); return; }
-    const rec = new BrowserRec();
-    rec.lang = LANGS[(navigator.language || "fi").startsWith("en") ? "en" : "fi"];
-    rec.interimResults = true;
-    const before = $("input").value;
-    let finalText = "", cancelled = false;
-    rec.onresult = e => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const t = e.results[i][0].transcript;
-        if (e.results[i].isFinal) finalText += t; else interim += t;
-      }
-      $("input").value = (before ? before + " " : "") + finalText + interim;
-    };
-    rec.onerror = e => { if (e.error !== "aborted" && e.error !== "no-speech") note(`Couldn't listen (${e.error}).`); };
-    rec.onend = () => {
-      listening = false; stopNow = null; paint();
-      if (!voiceOn || cancelled) return;
-      const text = $("input").value.trim();
-      if (finalText.trim() && text) send(text);
-      else { note("I didn't hear anything. Voice is off."); turnOff(); }
-    };
-    stopNow = () => { cancelled = true; rec.stop(); };
-    listening = true;
-    note("Listening…");
-    paint();
+    if (!voiceOn) return;
+    if (!BrowserRec) { note("Voice needs an OpenAI key on the server (or Chrome)."); turnOff(); return; }
+    rec = new BrowserRec();
+    rec.lang = (navigator.language || "fi").startsWith("en") ? "en-US" : "fi-FI";
+    let text = "";
+    rec.onresult = e => { for (let i = e.resultIndex; i < e.results.length; i++) if (e.results[i].isFinal) text += e.results[i][0].transcript; };
+    rec.onend = () => { rec = null; if (voiceOn) { if (text.trim()) send(text); else { note("I didn't hear anything."); turnOff(); } } };
+    note("Listening…"); paint("listening");
     rec.start();
   }
 
-  async function listen() {
-    await ready;
-    if (!voiceOn || listening) return;
-    stopSpeaking();
-    if (engine === "openai") listenServer(); else listenBrowser();
-  }
-
-  // ---- speaking -----------------------------------------------------------------------------------
-
-  async function speakServer(text, lang) {
-    const r = await fetch("/api/voice/speak", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, lang }) });
-    if (!r.ok) throw new Error("speak failed");
-    const url = URL.createObjectURL(await r.blob());
-    try {
-      await new Promise((resolve, reject) => {
-        playing = new Audio(url);
-        playing.onended = playing.onpause = resolve;
-        playing.onerror = () => reject(new Error("the audio didn't play"));
-        playing.play().catch(reject);
-      });
-    } finally {
-      URL.revokeObjectURL(url);
-      playing = null;
-    }
-  }
-
-  function speakBrowser(text, lang) {
-    return new Promise(resolve => {
-      if (!("speechSynthesis" in window)) return resolve();
-      const u = new SpeechSynthesisUtterance(text);
-      u.lang = LANGS[lang];
-      const all = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith(lang));
-      u.voice = all.find(v => /natural|online|neural/i.test(v.name)) || all[0] || null;
-      u.onend = u.onerror = resolve;
-      speechSynthesis.speak(u);
-    });
-  }
-
-  async function speak(text) {
-    if (!text) return;
-    await ready;
-    const lang = langOf(text);
-    note("Speaking…");
-    if (engine !== "openai") { await speakBrowser(text, lang); note(""); return; }
-    // the OpenAI voice only: never Chrome's own voice in its place
-    try { await speakServer(text, lang); note(""); }
-    catch (e) { console.error("voice:", e); note(`Couldn't play the voice (${e.message}).`); }
-  }
-
-  // a reply came: with voice on it is said aloud, then it listens again
-  window.addEventListener("lightheart:reply", async e => {
-    if (!voiceOn) return;
-    await speak(e.detail.reply);
-    listen();
+  window.addEventListener("lightheart:reply", e => {
+    if (!voiceOn || engine === "openai" || !e.detail.reply) return;
+    const u = new SpeechSynthesisUtterance(e.detail.reply);
+    u.lang = (navigator.language || "fi").startsWith("en") ? "en-US" : "fi-FI";
+    u.onend = listenBrowser;
+    speechSynthesis.speak(u);
   });
 
   // ---- the button ---------------------------------------------------------------------------------
 
   function turnOff() {
     voiceOn = false;
-    stopSpeaking();
-    if (listening && stopNow) stopNow();
+    stopRealtime();
+    if (rec) { try { rec.abort(); } catch (e) {} rec = null; }
+    if ("speechSynthesis" in window) speechSynthesis.cancel();
     paint();
   }
 
-  $("voiceMode").onclick = () => {
+  $("voiceMode").onclick = async () => {
     if (voiceOn) { turnOff(); note(""); return; }
     voiceOn = true;
     paint();
-    listen();
+    await ready;
+    if (engine !== "openai") { listenBrowser(); return; }
+    try { await startRealtime(); }
+    catch (e) { console.error("voice:", e); note(`Couldn't start voice mode: ${e.message}`); turnOff(); }
   };
-  if ("speechSynthesis" in window) speechSynthesis.getVoices();
   paint();
 })();

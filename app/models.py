@@ -49,6 +49,24 @@ class Message(BaseModel):
     chat_id: Optional[str] = None
 
 
+class VoiceSessionIn(BaseModel):
+    board_id: Optional[str] = None
+    chat_id: Optional[str] = None
+
+
+class VoiceTurnIn(BaseModel):
+    role: str
+    content: str
+    board_id: Optional[str] = None
+    chat_id: Optional[str] = None
+
+
+class VoiceOpsIn(BaseModel):
+    ops: list = []
+    board_id: Optional[str] = None
+    chat_id: Optional[str] = None
+
+
 class ChatIn(BaseModel):
     content: str
     board_id: Optional[str] = None

@@ -235,6 +235,26 @@ def test_voice_transcribes_and_speaks(tmp_path):
     assert s.status_code == 200 and s.headers["content-type"] == "audio/mpeg" and voice.spoken == ["Hei!"]
 
 
+def test_realtime_voice_session_keeps_the_talk_and_the_cards(tmp_path):
+    from app.voice import FakeVoice
+
+    voice = FakeVoice()
+    c = TestClient(create_app(provider=FakeProvider([]), db_path=str(tmp_path / "t.db"), voice=voice))
+    s = c.post("/api/voice/session", json={}).json()
+    assert s == {"key": "ek_fake", "model": "fake-realtime"}
+    assert voice.session["tools"][0]["name"] == "update_board" and "aloud" in voice.session["instructions"]
+    board = c.get("/api/board").json()
+    ids = {"board_id": board["board"]["id"], "chat_id": board["chat"]["id"]}
+    c.post("/api/voice/turn", json={"role": "user", "content": "Majakanvartija kerää kirjeitä", **ids})
+    c.post("/api/voice/turn", json={"role": "assistant", "content": "Kaunis idea!", **ids})
+    r = c.post("/api/voice/ops", json={"ops": [{"op": "create", "note": {"title": "Majakka", "body": "Kirjeet"}}], **ids}).json()
+    assert [n["title"] for n in r["notes_changed"]] == ["Majakka"]
+    after = c.get("/api/board", params=ids).json()
+    assert [m["role"] for m in after["messages"]] == ["user", "assistant"]
+    assert after["chat"]["title"] == "Majakanvartija kerää kirjeitä"
+    assert any(n["title"] == "Majakka" for n in after["notes"])
+
+
 def test_no_openai_key_means_browser_voice(tmp_path):
     app = create_app(provider=FakeProvider([]), db_path=str(tmp_path / "t.db"))
     app.state.voice = None

@@ -32,6 +32,19 @@ Cards:
 """
 
 
+def voice_prompt():
+    """The same partner, talking aloud: it speaks its reply and makes cards with update_board."""
+    return system_prompt().replace(
+        "Always answer by calling the update_board tool, with a short reply and a list of board operations.",
+        "You are talking with the user aloud, in a voice conversation. Speak your reply yourself; when a card should "
+        "be made or changed, also call the update_board tool with the operations (never read the card out word for "
+        "word; at most say in a few words that you put it on the board).",
+    ).replace(
+        "- Warm, conversational, brief: 1-4 sentences.",
+        "- Warm, conversational, brief: 1-3 spoken sentences, natural and lively, like a friend on a call.",
+    ) + "- Speak the language the user speaks; Finnish with a native Finnish accent.\n"
+
+
 def board_context(board_state):
     if not board_state:
         return "The board is empty."

@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from . import ops, styles
 from .db import DB
 from .llm.base import LLMProvider, NoKeyProvider
-from .models import BookIn, ChatIn, NoteFields, SpeakIn, TitleIn
+from .models import BookIn, ChatIn, NoteFields, SpeakIn, TitleIn, VoiceOpsIn, VoiceSessionIn, VoiceTurnIn
 
 log = logging.getLogger("lightheart")
 ROOT = Path(__file__).resolve().parent.parent
@@ -305,6 +305,54 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
     @app.get("/api/voice")
     def voice_engine():
         return {"engine": "openai" if app.state.voice else "browser"}
+
+    # realtime voice: the browser talks to OpenAI directly; here the key is minted, and what was said
+    # and the cards it makes are kept in the chat and on the board like typed ones
+
+    @app.post("/api/voice/session")
+    async def voice_session(body: VoiceSessionIn):
+        if not app.state.voice:
+            raise HTTPException(400, "Voice mode needs OPENAI_API_KEY in .env.")
+        from .llm.anthropic import TOOL
+        from .llm.prompts import board_context, voice_prompt
+
+        b, c = resolve(body.board_id, body.chat_id)
+        history = "\n".join(f"{m.role}: {m.content}" for m in db.messages(c["id"], HISTORY))
+        instructions = voice_prompt() + "\n" + board_context(ops.board_state(db.notes(b["id"])))
+        if history:
+            instructions += "\n\nThe conversation so far (typed or spoken):\n" + history
+        props = TOOL["input_schema"]["properties"]
+        tool = {"type": "function", "name": "update_board",
+                "description": "Change the user's idea board: create cards, update one, or nothing.",
+                "parameters": {"type": "object", "properties": {"ops": props["ops"]}, "required": ["ops"]}}
+        try:
+            return await app.state.voice.realtime_key(instructions, [tool])
+        except Exception as e:
+            log.exception("realtime session failed")
+            raise HTTPException(502, f"Couldn't start voice mode ({e}).")
+
+    @app.post("/api/voice/turn")
+    def voice_turn(body: VoiceTurnIn):
+        text = body.content.strip()
+        if not text or body.role not in ("user", "assistant"):
+            raise HTTPException(400, "empty")
+        b, c = resolve(body.board_id, body.chat_id)
+        first = not db.messages(c["id"])
+        m = db.add_message(body.role, text, chat_id=c["id"])
+        if first and body.role == "user" and c["title"] in ("New chat", "First chat"):
+            db.rename_chat(c["id"], " ".join(text.split()[:6])[:60])
+        db.touch_chat(c["id"])
+        db.touch_board(b["id"])
+        return {"message": m.model_dump(), "chat": db.chat(c["id"])}
+
+    @app.post("/api/voice/ops")
+    def voice_ops(body: VoiceOpsIn):
+        b, c = resolve(body.board_id, body.chat_id)
+        said = [m for m in db.messages(c["id"]) if m.role == "user"]
+        changed = ops.apply(db, body.ops, source_message_id=said[-1].id if said else None, board_id=b["id"])
+        db.touch_board(b["id"])
+        return {"notes_changed": [n.model_dump() for n in changed],
+                "board": ops.board_state(db.notes(b["id"]))}
 
     @app.post("/api/voice/transcribe")
     async def transcribe(audio: UploadFile = File(...), lang: str = Form("")):
