@@ -6,7 +6,7 @@ from .. import styles
 def system_prompt():
     palettes = ", ".join(styles.PALETTES)
     fonts = ", ".join(styles.FONTS)
-    stickers = ", ".join(f"{k} {v}" for k, v in styles.STICKERS.items())
+    stickers = ", ".join(styles.STICKERS)
     return f"""You are the user's idea partner for creative work: writers, artists, makers. Help an idea grow, then capture it on their board as a small visual note card, like a page of a school notebook with highlighters, washi tape and stickers.
 
 Always answer by calling the update_board tool, with a short reply and a list of board operations.

@@ -307,7 +307,7 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
         return {"engine": "openai" if app.state.voice else "browser"}
 
     @app.post("/api/voice/transcribe")
-    async def transcribe(audio: UploadFile = File(...), lang: str = Form("fi")):
+    async def transcribe(audio: UploadFile = File(...), lang: str = Form("")):
         if not app.state.voice:
             raise HTTPException(400, "No OPENAI_API_KEY: the browser's own speech is used.")
         data = await audio.read()

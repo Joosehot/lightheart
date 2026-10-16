@@ -20,7 +20,7 @@
           ${b.chats.map(c => `<div class="chat-row ${CUR.chat && c.id === CUR.chat.id ? "on" : ""}" data-chat="${c.id}" data-board="${b.id}">
             <span class="chat-title" title="Double-click to rename">${esc(c.title)}</span><span class="when">${ago(c.updated_at)}</span>
             <button class="x" data-del-chat="${c.id}" title="Delete this chat">×</button></div>`).join("")}
-          <button class="new-chat" data-new-chat="${b.id}">＋ new chat</button>
+          <button class="new-chat" data-new-chat="${b.id}">New chat</button>
         </div>` : "";
       return `<section class="idea ${open ? "open" : ""}">
         <div class="idea-row" data-board="${b.id}">

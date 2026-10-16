@@ -74,7 +74,7 @@ function renderCard(n, how) {
   el.style.setProperty("--hl", hexA(p.highlight, .62));
   el.querySelector(".tape").style.display = n.tape ? "" : "none";
   el.querySelector(".tape").style.background = p.tape;
-  el.querySelector(".sticker").textContent = STYLES.stickers[n.sticker] || "";
+  el.querySelector(".sticker").innerHTML = stickerSvg(n.sticker, p);
   const title = el.querySelector(".title");
   if (title.contentEditable !== "true") title.textContent = n.title;
   title.style.fontFamily = STYLES.fonts[n.font] || STYLES.fonts.caveat;
@@ -84,6 +84,13 @@ function renderCard(n, how) {
   el.classList.toggle("selected", selected === n.id);
   if (how) { el.classList.remove("enter", "changed"); void el.offsetWidth; el.classList.add(how); }
   return el;
+}
+
+// a sticker: its line drawing in the card's accent color, filled with its highlight
+function stickerSvg(key, p, size = 34) {
+  const d = STYLES.stickers[key];
+  if (!d) return "";
+  return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="${p.highlight}" stroke="${p.accent}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="${d}"/></svg>`;
 }
 
 function hexA(hex, a) {
@@ -109,15 +116,6 @@ function addMessage(role, text, extra = "") {
   const d = document.createElement("div");
   d.className = `msg ${role} ${extra}`;
   d.textContent = text;
-  if (role === "assistant" && !extra) {
-    // hear this reply (voice.js speaks it)
-    const b = document.createElement("button");
-    b.className = "hear";
-    b.title = "Listen";
-    b.textContent = "🔊";
-    b.onclick = () => window.dispatchEvent(new CustomEvent("lightheart:speak", { detail: { text } }));
-    d.appendChild(b);
-  }
   $("messages").appendChild(d);
   $("messages").scrollTop = $("messages").scrollHeight;
   return d;
@@ -187,7 +185,7 @@ function openPopover(id) {
   const pop = $("popover");
   const pal = Object.entries(STYLES.palettes).map(([k, p]) => `<button class="swatch ${n.palette === k ? "on" : ""}" data-palette="${k}" title="${k}" style="background:${p.paper};box-shadow: inset 0 0 0 7px ${p.paper}, inset 0 0 0 15px ${p.highlight}"></button>`).join("");
   const fonts = Object.entries(STYLES.fonts).map(([k, f]) => `<button class="font-btn ${n.font === k ? "on" : ""}" data-font="${k}" style="font-family:${f}">${STYLES.font_labels[k]}</button>`).join("");
-  const stick = [`<button class="stick ${!n.sticker ? "on" : ""}" data-sticker="" title="none">∅</button>`].concat(Object.entries(STYLES.stickers).map(([k, s]) => `<button class="stick ${n.sticker === k ? "on" : ""}" data-sticker="${k}" title="${k}">${s}</button>`)).join("");
+  const stick = [`<button class="stick none ${!n.sticker ? "on" : ""}" data-sticker="" title="no sticker">none</button>`].concat(Object.keys(STYLES.stickers).map(k => `<button class="stick ${n.sticker === k ? "on" : ""}" data-sticker="${k}" title="${k}">${stickerSvg(k, paletteOf(n), 20)}</button>`)).join("");
   pop.innerHTML = `<h4>Color</h4><div class="swatches">${pal}</div><h4>Title font</h4><div class="fonts">${fonts}</div><h4>Sticker</h4><div class="stickers">${stick}</div>
     <div class="pop-row"><label><input type="checkbox" id="tapeBox" ${n.tape ? "checked" : ""}> washi tape</label><button class="danger" id="delBtn">Delete</button></div>
     <div class="pop-row" style="margin-top:6px;color:var(--ink-soft);font-size:12px">Click the title or text to edit it.</div>`;

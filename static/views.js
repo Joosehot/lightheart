@@ -43,7 +43,7 @@
   }
 
   const tags = n => (n.tags || []).map(t => `<span class="t">#${esc(t)}</span>`).join("");
-  const sticker = n => STYLES.stickers[n.sticker] || "";
+  const sticker = n => stickerSvg(n.sticker, STYLES.palettes[BRIGHT[n.palette] || n.palette] || paletteOf(n), 30);
 
   function postit(n) {
     const p = STYLES.palettes[BRIGHT[n.palette] || n.palette] || STYLES.palettes.sunflower;

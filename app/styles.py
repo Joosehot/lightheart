@@ -32,19 +32,20 @@ FONTS = {
 BODY_FONT = "'Nunito', system-ui, sans-serif"
 GOOGLE_FONTS = "Caveat:wght@500;700&family=Patrick+Hand&family=Kalam:wght@400;700&family=Permanent+Marker&family=Gloria+Hallelujah&family=Nunito:wght@400;600;700"
 
+# stickers: small line drawings (SVG paths on a 24x24 grid), drawn in the card's own colors
 STICKERS = {
-    "star": "⭐",
-    "heart": "💛",
-    "sparkle": "✨",
-    "flower": "🌸",
-    "moon": "🌙",
-    "bolt": "⚡",
-    "leaf": "🌿",
-    "music": "🎵",
-    "bulb": "💡",
-    "coffee": "☕",
-    "ghost": "👻",
-    "fire": "🔥",
+    "star": "M12 3l2.6 5.6 6.1.7-4.5 4.2 1.2 6L12 16.6 6.6 19.5l1.2-6L3.3 9.3l6.1-.7z",
+    "heart": "M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z",
+    "sparkle": "M12 3c.6 4.2 2.8 6.4 7 7-4.2.6-6.4 2.8-7 7-.6-4.2-2.8-6.4-7-7 4.2-.6 6.4-2.8 7-7z",
+    "flower": "M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zM12 3.5a3 3 0 0 1 0 6 3 3 0 0 1 0-6zM12 14.5a3 3 0 0 1 0 6 3 3 0 0 1 0-6zM3.5 12a3 3 0 0 1 6 0 3 3 0 0 1-6 0zM14.5 12a3 3 0 0 1 6 0 3 3 0 0 1-6 0z",
+    "moon": "M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z",
+    "bolt": "M13 2L4 14h7l-1 8 9-12h-7z",
+    "leaf": "M5 19C5 10 10 5 20 4c-1 10-6 15-15 15zM5 19l8-8",
+    "music": "M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z",
+    "bulb": "M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.3 1 2.1h5c0-.8.4-1.6 1-2.1A6 6 0 0 0 12 3z",
+    "coffee": "M4 9h12v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5zM16 10h1.5a2.5 2.5 0 0 1 0 5H16M8 3v3M12 3v3",
+    "ghost": "M6 20V10a6 6 0 0 1 12 0v10l-2-1.5-2 1.5-2-1.5-2 1.5-2-1.5zM10 10h.01M14 10h.01",
+    "fire": "M12 21a6 6 0 0 0 6-6c0-4-3-6-4-10-1 3-3 4-3 4s-1-2-1-3c-3 2-4 5-4 9a6 6 0 0 0 6 6z",
 }
 
 DEFAULT_PALETTE = "butter"
