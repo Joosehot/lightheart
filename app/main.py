@@ -336,6 +336,14 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
     def index():
         return FileResponse(STATIC / "index.html")
 
+    # the page and its scripts are always fetched fresh, so a change shows on the next refresh
+    @app.middleware("http")
+    async def no_cache(request, call_next):
+        response = await call_next(request)
+        if request.url.path == "/" or request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache"
+        return response
+
     app.mount("/static", StaticFiles(directory=STATIC), name="static")
     app.mount("/images", StaticFiles(directory=images), name="images")
     return app
