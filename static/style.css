@@ -10,6 +10,8 @@
   --hand: 'Caveat', cursive;
 }
 * { box-sizing: border-box; }
+/* an element with the hidden attribute stays hidden, whatever its display */
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 body {
   color: var(--ink);
