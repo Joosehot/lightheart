@@ -17,6 +17,7 @@
   <p>a box for your ideas</p>
 </header>
 <div class="board-tools">
+  <button id="bookBtn" title="Turn your ideas into a comic book you can read">📖 comic book</button>
   <button id="addCard" title="A blank card to fill in yourself">＋ blank card</button>
   <a href="/api/export" download="lightheart-board.json" class="tool-link">export</a>
 </div>
@@ -30,6 +31,45 @@
 </section>
 <div class="popover" id="popover" hidden></div>
 <div class="toast" id="toast" hidden></div>
+
+<!-- the comic book: making one, the shelf, the reader -->
+<div class="shade" id="bookMaker" hidden>
+  <div class="sheet">
+    <button class="close" data-close aria-label="Close">×</button>
+    <h2>Make a comic book</h2>
+    <p class="muted">Your ideas become a short comic you can read: a story, panels, speech bubbles, real pictures.</p>
+    <label class="field"><span>From</span>
+      <select id="bookFrom"></select>
+    </label>
+    <label class="field"><span>What should it be like? <em>(optional)</em></span>
+      <textarea id="bookWish" rows="2" placeholder="e.g. a quiet bedtime story, or a funny one with a twist at the end"></textarea>
+    </label>
+    <label class="field"><span>Pages</span>
+      <input type="range" id="bookPages" min="1" max="6" value="4"> <b id="bookPagesN">4</b>
+    </label>
+    <p class="estimate" id="bookEstimate"></p>
+    <div class="err" id="bookErr"></div>
+    <div class="sheet-row">
+      <button class="primary" id="bookGo">Write and draw it</button>
+    </div>
+    <div class="shelf" id="shelf"></div>
+  </div>
+</div>
+<div class="reader" id="reader" hidden>
+  <div class="reader-top">
+    <button class="ghost" id="readerShelf">‹ shelf</button>
+    <span id="readerTitle"></span>
+    <span class="muted" id="readerStatus"></span>
+    <button class="ghost close" id="readerClose" aria-label="Close">×</button>
+  </div>
+  <div class="spread" id="spread"></div>
+  <div class="reader-nav">
+    <button class="turn" id="prevPage" aria-label="Previous page">‹</button>
+    <span id="pageNo"></span>
+    <button class="turn" id="nextPage" aria-label="Next page">›</button>
+  </div>
+</div>
 <script src="/static/app.js"></script>
+<script src="/static/book.js"></script>
 </body>
 </html>

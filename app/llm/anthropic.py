@@ -12,7 +12,8 @@ from .prompts import board_context, system_prompt
 
 log = logging.getLogger("lightheart.llm")
 
-DEFAULT_MODEL = "claude-sonnet-5-5"
+# the chat's voice: Haiku, fast and cheap (LIGHTHEART_MODEL overrides it)
+DEFAULT_MODEL = "claude-haiku-4-5-20251001"
 
 NOTE_SCHEMA = {
     "type": "object",

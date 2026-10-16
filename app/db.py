@@ -31,6 +31,25 @@ create table if not exists messages (
   content text not null,
   created_at text not null
 );
+create table if not exists books (
+  id text primary key,
+  title text not null,
+  characters text not null default '[]',
+  direction text not null default '',
+  created_at text not null
+);
+create table if not exists panels (
+  id text primary key,
+  book_id text not null references books(id) on delete cascade,
+  page integer not null,
+  idx integer not null,
+  scene text not null,
+  caption text not null default '',
+  bubbles text not null default '[]',
+  image text,
+  status text not null default 'waiting',
+  error text
+);
 """
 
 
@@ -99,3 +118,54 @@ class DB:
         self.conn.execute("insert into messages values (?, ?, ?, ?)", (m.id, m.role, m.content, m.created_at))
         self.conn.commit()
         return m
+
+    # ---- comic books -------------------------------------------------------------------------
+
+    def add_book(self, script, direction=""):
+        bid = new_id()
+        self.conn.execute("insert into books values (?, ?, ?, ?, ?)", (bid, script.title, json.dumps(script.characters, ensure_ascii=False), direction, now()))
+        for p, panels in enumerate(script.pages):
+            for i, pn in enumerate(panels):
+                self.conn.execute(
+                    "insert into panels (id, book_id, page, idx, scene, caption, bubbles) values (?, ?, ?, ?, ?, ?, ?)",
+                    (new_id(), bid, p, i, pn["scene"], pn["caption"], json.dumps(pn["bubbles"], ensure_ascii=False)),
+                )
+        self.conn.commit()
+        return bid
+
+    def _panel(self, row):
+        d = dict(row)
+        d["bubbles"] = json.loads(d["bubbles"])
+        return d
+
+    def book(self, book_id):
+        row = self.conn.execute("select * from books where id = ?", (book_id,)).fetchone()
+        if not row:
+            return None
+        b = dict(row)
+        b["characters"] = json.loads(b["characters"])
+        b["panels"] = [self._panel(r) for r in self.conn.execute("select * from panels where book_id = ? order by page, idx", (book_id,))]
+        return b
+
+    def books(self):
+        out = []
+        for r in self.conn.execute("select * from books order by created_at desc").fetchall():
+            cover = self.conn.execute("select image from panels where book_id = ? and image is not null order by page, idx limit 1", (r["id"],)).fetchone()
+            counts = self.conn.execute("select count(*), sum(status = 'done') from panels where book_id = ?", (r["id"],)).fetchone()
+            out.append({"id": r["id"], "title": r["title"], "created_at": r["created_at"], "cover": cover["image"] if cover else None, "panels": counts[0], "done": counts[1] or 0})
+        return out
+
+    def panel(self, panel_id):
+        row = self.conn.execute("select * from panels where id = ?", (panel_id,)).fetchone()
+        return self._panel(row) if row else None
+
+    def set_panel(self, panel_id, **fields):
+        cols = ", ".join(f"{k} = ?" for k in fields)
+        self.conn.execute(f"update panels set {cols} where id = ?", (*fields.values(), panel_id))
+        self.conn.commit()
+
+    def delete_book(self, book_id):
+        self.conn.execute("delete from panels where book_id = ?", (book_id,))
+        cur = self.conn.execute("delete from books where id = ?", (book_id,))
+        self.conn.commit()
+        return cur.rowcount > 0

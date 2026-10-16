@@ -48,3 +48,11 @@ class Message(BaseModel):
 
 class ChatIn(BaseModel):
     content: str
+
+
+class BookIn(BaseModel):
+    """A comic book from the board (or from some of its cards), with an optional wish."""
+
+    note_ids: Optional[list[str]] = None
+    direction: str = ""
+    pages: int = 4
