@@ -281,3 +281,51 @@ body {
 #voiceLang { text-transform: uppercase; border: 1px solid var(--line); }
 .voice-note { font-size: 12px; color: var(--ink-soft); margin-left: auto; }
 @keyframes listen { 0%, 100% { box-shadow: 0 0 0 0 rgba(224, 49, 49, .35); } 50% { box-shadow: 0 0 0 7px rgba(224, 49, 49, 0); } }
+
+/* ---- the view switcher and the other views ---------------------------------------------------- */
+.views { position: fixed; top: 14px; left: 50%; transform: translateX(-50%); z-index: 35; display: flex; gap: 2px; padding: 4px; background: rgba(255, 253, 248, .95); border: 1.5px solid var(--line); border-radius: 999px; box-shadow: 0 6px 18px rgba(60, 40, 20, .12); }
+.views button { border: none; background: none; padding: 6px 14px; border-radius: 999px; font: 600 14px var(--body-font); color: var(--ink-soft); cursor: pointer; white-space: nowrap; }
+.views button:hover { color: var(--ink); }
+.views button.on { background: var(--ink); color: #fff; }
+@media (max-width: 760px) { .views { top: auto; bottom: 150px; } .views button { padding: 6px 9px; font-size: 12px; } }
+.alt-view { position: fixed; inset: 0; overflow-y: auto; padding: 84px 24px 230px; }
+.alt-empty { text-align: center; color: var(--ink-soft); font: 26px var(--hand); margin-top: 18vh; }
+.alt-view [data-edit] { cursor: text; outline: none; }
+.alt-view [contenteditable="true"] { background: rgba(255,255,255,.55); border-radius: 4px; box-shadow: 0 0 0 4px rgba(255,255,255,.55); }
+.alt-view mark { color: inherit; background: var(--hl); padding: 0 2px; border-radius: 3px; }
+
+/* Post-it: bright square sticky notes in a tidy grid */
+.alt-view[data-view="postit"] { background: #e9e4da; background-image: radial-gradient(rgba(0,0,0,.05) 1px, transparent 1px); background-size: 18px 18px; }
+.alt-view[data-view="postit"] .alt-inner { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 30px 26px; max-width: 1400px; margin: 0 auto; }
+.pi { position: relative; aspect-ratio: 1; padding: 30px 20px 18px; background: var(--bg); color: var(--ink); transform: rotate(var(--tilt));
+  box-shadow: 0 1px 1px rgba(0,0,0,.1), 0 12px 18px -8px rgba(0,0,0,.28); overflow: hidden;
+  background-image: linear-gradient(to bottom, rgba(0,0,0,.06), transparent 22px); }
+.pi::after { content: ""; position: absolute; right: 0; bottom: 0; width: 34px; height: 34px; background: linear-gradient(135deg, transparent 50%, rgba(0,0,0,.12) 50%); }
+.pi .pin { position: absolute; top: 9px; left: 50%; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; background: radial-gradient(circle at 35% 35%, #ff8787, #c92a2a); box-shadow: 0 2px 3px rgba(0,0,0,.35); }
+.pi h3 { margin: 0 0 8px; font: 24px/1.1 'Permanent Marker', cursive; }
+.pi p { margin: 0; font: 19px/1.3 'Patrick Hand', cursive; white-space: pre-wrap; }
+.pi-sticker { position: absolute; right: 12px; bottom: 10px; font-size: 26px; }
+
+/* Notes: plain, quiet, readable - a list like a notes app */
+.alt-view[data-view="notes"] { background: #fff; }
+.alt-view[data-view="notes"] .alt-inner { max-width: 720px; margin: 0 auto; }
+.pl { padding: 22px 6px 24px; border-bottom: 1px solid #ececec; font-family: 'Inter', system-ui, sans-serif; }
+.pl-meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #8a8a8a; margin-bottom: 6px; }
+.pl-meta .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--dot); }
+.pl-meta .t { color: #8a8a8a; }
+.pl h3 { margin: 0 0 6px; font: 700 21px/1.3 'Inter', system-ui, sans-serif; color: #1a1a1a; }
+.pl p { margin: 0; font: 16px/1.6 'Inter', system-ui, sans-serif; color: #3a3a3a; white-space: pre-wrap; }
+
+/* Comic: every note a comic panel - caption box, a burst, the text in a speech bubble */
+.alt-view[data-view="comic"] { background: #fff7d6; background-image: radial-gradient(#f2c94c 1.4px, transparent 1.6px); background-size: 12px 12px; }
+.alt-view[data-view="comic"] .alt-inner { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; max-width: 1300px; margin: 0 auto; padding: 16px; background: #fff; border: 4px solid #111; box-shadow: 8px 8px 0 #111; }
+.cm { position: relative; display: flex; flex-direction: column; min-height: 260px; border: 4px solid #111; background: var(--bg);
+  background-image: radial-gradient(rgba(0,0,0,.09) 1.5px, transparent 1.7px); background-size: 9px 9px; }
+.cm-cap { align-self: flex-start; margin: -4px 0 0 -4px; padding: 6px 12px; background: #ffe066; border: 4px solid #111; font: 22px/1.05 'Bangers', sans-serif; letter-spacing: 1px; text-transform: uppercase; max-width: 85%; }
+.cm-art { flex: 1; min-height: 70px; display: grid; place-items: center; }
+.cm-pow { display: grid; place-items: center; width: 74px; height: 74px; font-size: 34px; background: var(--accent);
+  clip-path: polygon(50% 0, 61% 30%, 95% 18%, 72% 45%, 100% 60%, 68% 66%, 78% 100%, 50% 75%, 22% 100%, 32% 66%, 0 60%, 28% 45%, 5% 18%, 39% 30%); }
+.cm-bub { position: relative; margin: 0 14px 22px; padding: 10px 14px; background: #fff; border: 3px solid #111; border-radius: 22px; }
+.cm-bub::after { content: ""; position: absolute; top: -16px; left: 34px; border: 9px solid transparent; border-bottom: 14px solid #111; border-top: 0; }
+.cm-bub p { margin: 0; font: 700 15px/1.35 'Comic Neue', sans-serif; white-space: pre-wrap; }
+.cm mark { background: var(--hl); }

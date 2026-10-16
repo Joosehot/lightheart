@@ -12,6 +12,14 @@
 <main class="board-wrap" id="boardWrap">
   <div class="board" id="board"></div>
 </main>
+<!-- the same notes, seen another way (Post-it, Notes, Comic); the scrapbook board above is the default -->
+<main class="alt-view" id="altView" hidden></main>
+<nav class="views" id="views" aria-label="View">
+  <button data-view="scrapbook" class="on">✂️ Scrapbook</button>
+  <button data-view="postit">🟨 Post-it</button>
+  <button data-view="notes">📝 Notes</button>
+  <button data-view="comic">💥 Comic</button>
+</nav>
 <header class="brand">
   <h1>Lightheart</h1>
   <p>a box for your ideas</p>
@@ -82,5 +90,6 @@
 <script src="/static/app.js"></script>
 <script src="/static/book.js"></script>
 <script src="/static/voice.js"></script>
+<script src="/static/views.js"></script>
 </body>
 </html>
