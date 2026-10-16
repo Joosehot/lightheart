@@ -103,6 +103,7 @@ function renderMessages(msgs) {
 function addMessage(role, text, extra = "") {
   const empty = document.querySelector(".empty");
   if (empty) empty.remove();
+  $("island").classList.remove("folded"); // a new message opens the conversation again
   const d = document.createElement("div");
   d.className = `msg ${role} ${extra}`;
   d.textContent = text;
@@ -231,6 +232,7 @@ async function send(text) {
   busy = true; $("send").disabled = true;
   addMessage("user", text.trim());
   $("input").value = "";
+  $("input").style.height = "auto";
   const thinking = addMessage("assistant", "thinking…", "thinking");
   try {
     const r = await api("POST", "/api/chat", { content: text });
@@ -265,6 +267,10 @@ async function start() {
   $("input").addEventListener("keydown", e => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send($("input").value); }
   });
+  // the input grows with what is written, up to a few lines
+  const grow = () => { const t = $("input"); t.style.height = "auto"; t.style.height = Math.min(t.scrollHeight, 140) + "px"; };
+  $("input").addEventListener("input", grow);
+  $("fold").onclick = () => $("island").classList.toggle("folded");
   $("addCard").onclick = async () => {
     const n = await api("POST", "/api/notes", {});
     notes.set(n.id, n);

@@ -9,26 +9,25 @@
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<div class="app">
-  <aside class="chat">
-    <header class="brand">
-      <h1>Lightheart</h1>
-      <p>a box for your ideas</p>
-    </header>
-    <div class="messages" id="messages"></div>
-    <form class="composer" id="composer">
-      <textarea id="input" rows="2" placeholder="What's on your mind?" autocomplete="off"></textarea>
-      <button type="submit" id="send" aria-label="Send">Send</button>
-    </form>
-  </aside>
-  <main class="board-wrap" id="boardWrap">
-    <div class="board-tools">
-      <button id="addCard" title="A blank card to fill in yourself">＋ blank card</button>
-      <a href="/api/export" download="lightheart-board.json" class="tool-link">export</a>
-    </div>
-    <div class="board" id="board"></div>
-  </main>
+<main class="board-wrap" id="boardWrap">
+  <div class="board" id="board"></div>
+</main>
+<header class="brand">
+  <h1>Lightheart</h1>
+  <p>a box for your ideas</p>
+</header>
+<div class="board-tools">
+  <button id="addCard" title="A blank card to fill in yourself">＋ blank card</button>
+  <a href="/api/export" download="lightheart-board.json" class="tool-link">export</a>
 </div>
+<section class="island" id="island">
+  <button class="fold" id="fold" title="Hide or show the conversation" aria-label="Hide or show the conversation">⌄</button>
+  <div class="messages" id="messages"></div>
+  <form class="composer" id="composer">
+    <textarea id="input" rows="1" placeholder="What's on your mind?" autocomplete="off"></textarea>
+    <button type="submit" id="send" aria-label="Send">Send</button>
+  </form>
+</section>
 <div class="popover" id="popover" hidden></div>
 <div class="toast" id="toast" hidden></div>
 <script src="/static/app.js"></script>
