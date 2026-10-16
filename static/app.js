@@ -109,6 +109,15 @@ function addMessage(role, text, extra = "") {
   const d = document.createElement("div");
   d.className = `msg ${role} ${extra}`;
   d.textContent = text;
+  if (role === "assistant" && !extra) {
+    // hear this reply (voice.js speaks it)
+    const b = document.createElement("button");
+    b.className = "hear";
+    b.title = "Listen";
+    b.textContent = "🔊";
+    b.onclick = () => window.dispatchEvent(new CustomEvent("lightheart:speak", { detail: { text } }));
+    d.appendChild(b);
+  }
   $("messages").appendChild(d);
   $("messages").scrollTop = $("messages").scrollHeight;
   return d;

@@ -14,6 +14,7 @@
   let listening = false;
   let stopNow = null;   // stops the current listening
   let playing = null;   // the reply being played
+  let askedByVoice = false; // the last message was spoken: its reply is spoken too
 
   function note(text) { $("voiceNote").textContent = text || ""; }
 
@@ -79,7 +80,7 @@
         const j = await r.json();
         if (!r.ok) throw new Error(j.detail || "failed");
         note("");
-        if (j.text) send(j.text);
+        if (j.text) { askedByVoice = true; send(j.text); }
         else note("I didn't catch that.");
       } catch (e) { note(e.message); }
     };
@@ -110,7 +111,7 @@
     rec.onend = () => {
       listening = false; stopNow = null; paint();
       const text = $("input").value.trim();
-      if (finalText.trim() && text) send(text);
+      if (finalText.trim() && text) { askedByVoice = true; send(text); }
     };
     stopNow = () => rec.stop();
     listening = true;
@@ -160,12 +161,16 @@
     note("");
   }
 
-  // a reply came: in voice mode it is spoken, then it listens again
+  // a reply came: spoken when you spoke (or in voice mode); in voice mode it then listens again
   window.addEventListener("lightheart:reply", async e => {
-    if (!voiceOn) return;
+    const spoke = askedByVoice;
+    askedByVoice = false;
+    if (!voiceOn && !spoke) return;
     await speak(e.detail.reply);
     if (voiceOn && !listening) listen();
   });
+  // the 🔊 on a reply
+  window.addEventListener("lightheart:speak", e => { stopSpeaking(); speak(e.detail.text); });
 
   // ---- wiring -------------------------------------------------------------------------------------
 
