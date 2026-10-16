@@ -1,10 +1,11 @@
-// The same notes seen four ways: Scrapbook (the free board), Post-it, Notes and Comic.
+// The same notes seen three ways: Scrapbook (the free board), Post-it and Notes.
 // Every note is in every view; clicking a title or text edits it in place. Uses app.js's notes,
 // STYLES, esc(), highlighted(), save() and renderCard().
 
 (() => {
   const $ = id => document.getElementById(id);
   let view = localStorage.getItem("lh-view") || "scrapbook";
+  if (!["scrapbook", "postit", "notes"].includes(view)) view = "scrapbook";
 
   const fonts = document.createElement("link");
   fonts.rel = "stylesheet";
@@ -37,7 +38,7 @@
       $("altView").innerHTML = `<div class="alt-empty">No notes yet. Tell me an idea below.</div>`;
       return;
     }
-    $("altView").innerHTML = `<div class="alt-inner">${list.map(n => view === "postit" ? postit(n) : view === "notes" ? plain(n) : comic(n)).join("")}</div>`;
+    $("altView").innerHTML = `<div class="alt-inner">${list.map(n => view === "postit" ? postit(n) : plain(n)).join("")}</div>`;
     $("altView").querySelectorAll("[data-edit]").forEach(el => el.addEventListener("click", () => edit(el)));
   }
 
@@ -62,15 +63,6 @@
       <div class="pl-meta"><span class="dot"></span>${day}${n.tags && n.tags.length ? " · " + tags(n) : ""}</div>
       <h3 data-edit="title" data-id="${n.id}">${esc(n.title)}</h3>
       <p data-edit="body" data-id="${n.id}">${highlighted(n.body, n.highlights)}</p>
-    </article>`;
-  }
-
-  function comic(n) {
-    const p = paletteOf(n);
-    return `<article class="cm" style="--bg:${p.paper};--accent:${p.accent};--hl:${hexA(p.highlight, .8)}">
-      <div class="cm-cap" data-edit="title" data-id="${n.id}">${esc(n.title)}</div>
-      <div class="cm-art"><span class="cm-pow">${sticker(n) || "✦"}</span></div>
-      <div class="cm-bub"><p data-edit="body" data-id="${n.id}">${highlighted(n.body, n.highlights)}</p></div>
     </article>`;
   }
 

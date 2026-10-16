@@ -316,16 +316,4 @@ body {
 .pl h3 { margin: 0 0 6px; font: 700 21px/1.3 'Inter', system-ui, sans-serif; color: #1a1a1a; }
 .pl p { margin: 0; font: 16px/1.6 'Inter', system-ui, sans-serif; color: #3a3a3a; white-space: pre-wrap; }
 
-/* Comic: every note a comic panel - caption box, a burst, the text in a speech bubble */
-.alt-view[data-view="comic"] { background: #fff7d6; background-image: radial-gradient(#f2c94c 1.4px, transparent 1.6px); background-size: 12px 12px; }
-.alt-view[data-view="comic"] .alt-inner { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; max-width: 1300px; margin: 0 auto; padding: 16px; background: #fff; border: 4px solid #111; box-shadow: 8px 8px 0 #111; }
-.cm { position: relative; display: flex; flex-direction: column; min-height: 260px; border: 4px solid #111; background: var(--bg);
-  background-image: radial-gradient(rgba(0,0,0,.09) 1.5px, transparent 1.7px); background-size: 9px 9px; }
-.cm-cap { align-self: flex-start; margin: -4px 0 0 -4px; padding: 6px 12px; background: #ffe066; border: 4px solid #111; font: 22px/1.05 'Bangers', sans-serif; letter-spacing: 1px; text-transform: uppercase; max-width: 85%; }
-.cm-art { flex: 1; min-height: 70px; display: grid; place-items: center; }
-.cm-pow { display: grid; place-items: center; width: 74px; height: 74px; font-size: 34px; background: var(--accent);
-  clip-path: polygon(50% 0, 61% 30%, 95% 18%, 72% 45%, 100% 60%, 68% 66%, 78% 100%, 50% 75%, 22% 100%, 32% 66%, 0 60%, 28% 45%, 5% 18%, 39% 30%); }
-.cm-bub { position: relative; margin: 0 14px 22px; padding: 10px 14px; background: #fff; border: 3px solid #111; border-radius: 22px; }
-.cm-bub::after { content: ""; position: absolute; top: -16px; left: 34px; border: 9px solid transparent; border-bottom: 14px solid #111; border-top: 0; }
-.cm-bub p { margin: 0; font: 700 15px/1.35 'Comic Neue', sans-serif; white-space: pre-wrap; }
-.cm mark { background: var(--hl); }
+
