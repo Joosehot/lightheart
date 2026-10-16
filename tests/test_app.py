@@ -255,6 +255,24 @@ def test_realtime_voice_session_keeps_the_talk_and_the_cards(tmp_path):
     assert any(n["title"] == "Majakka" for n in after["notes"])
 
 
+def test_voice_settings_are_kept_and_used(tmp_path):
+    from app.voice import FakeVoice
+
+    voice = FakeVoice()
+    c = TestClient(create_app(provider=FakeProvider([]), db_path=str(tmp_path / "t.db"), voice=voice))
+    s = c.get("/api/voice/settings").json()
+    assert s["current"] == {"voice": "marin", "style": "friend", "custom": "", "speed": "normal"}
+    assert any(v["id"] == "cedar" for v in s["voices"]) and any(x["id"] == "narrator" for x in s["styles"])
+    # unknown values fall back; a custom style keeps its words
+    saved = c.put("/api/voice/settings", json={"voice": "nobody", "style": "custom", "custom": "a grumpy pirate", "speed": "fast"}).json()
+    assert saved == {"voice": "marin", "style": "custom", "custom": "a grumpy pirate", "speed": "fast"}
+    c.put("/api/voice/settings", json={"voice": "cedar", "style": "custom", "custom": "a grumpy pirate", "speed": "fast"})
+    c.post("/api/voice/session", json={})
+    assert voice.session["voice"] == "cedar" and "a grumpy pirate" in voice.session["instructions"]
+    p = c.post("/api/voice/preview", json={"voice": "cedar", "style": "noir"})
+    assert p.status_code == 200 and p.content[:4] == b"RIFF" and voice.previewed["style"] == "noir"
+
+
 def test_gemini_schema_has_no_type_lists_or_null_enums():
     from app.llm.anthropic import TOOL
     from app.voice import gemini_schema

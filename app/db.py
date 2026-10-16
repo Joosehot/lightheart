@@ -63,6 +63,10 @@ create table if not exists panels (
   status text not null default 'waiting',
   error text
 );
+create table if not exists settings (
+  key text primary key,
+  value text not null
+);
 """
 
 
@@ -288,3 +292,14 @@ class DB:
         cur = self.conn.execute("delete from books where id = ?", (book_id,))
         self.conn.commit()
         return cur.rowcount > 0
+
+    # ---- settings: small JSON values by key ------------------------------------------------------
+
+    def setting(self, key, default=None):
+        row = self.conn.execute("select value from settings where key = ?", (key,)).fetchone()
+        return json.loads(row["value"]) if row else default
+
+    def set_setting(self, key, value):
+        self.conn.execute("insert into settings (key, value) values (?, ?) on conflict(key) do update set value = excluded.value",
+                          (key, json.dumps(value)))
+        self.conn.commit()

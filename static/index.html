@@ -40,12 +40,37 @@
   <form class="composer" id="composer">
     <textarea id="input" rows="1" placeholder="What's on your mind?" autocomplete="off"></textarea>
     <button type="button" class="voice-btn" id="voiceMode" title="Talk instead of typing: it listens, answers aloud and listens again">Voice off</button>
+    <button type="button" class="voice-set" id="voiceSettings" title="Choose the voice" aria-label="Choose the voice"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="17" r="2"/></svg></button>
     <button type="submit" id="send" aria-label="Send">Send</button>
   </form>
   <div class="voice-note" id="voiceNote"></div>
 </section>
 <div class="popover" id="popover" hidden></div>
 <div class="toast" id="toast" hidden></div>
+
+<!-- the voice of voice mode: which voice, how it talks, how fast -->
+<div class="shade" id="voicePanel" hidden>
+  <div class="sheet">
+    <button class="close" id="voiceClose" aria-label="Close">×</button>
+    <h2>The voice</h2>
+    <p class="muted">How it sounds when you talk with it. Listen first, then save.</p>
+    <div class="field"><span>Voice</span>
+      <div class="arts voice-list" id="vVoices"></div>
+    </div>
+    <div class="field"><span>How it talks</span>
+      <div class="arts" id="vStyles"></div>
+      <textarea id="vCustom" rows="2" placeholder="or describe your own character: e.g. a grumpy old pirate who secretly loves poetry"></textarea>
+    </div>
+    <div class="field"><span>Pace</span>
+      <div class="arts" id="vSpeeds"></div>
+    </div>
+    <div class="err" id="vErr"></div>
+    <div class="sheet-row voice-row-btns">
+      <button type="button" class="art" id="vListen">Listen</button>
+      <button type="button" class="primary" id="vSave">Save</button>
+    </div>
+  </div>
+</div>
 
 <!-- the comic book: making one, the shelf, the reader -->
 <div class="shade" id="bookMaker" hidden>
@@ -93,5 +118,6 @@
 <script src="/static/voice.js"></script>
 <script src="/static/views.js"></script>
 <script src="/static/ideas.js"></script>
+<script src="/static/voice-panel.js"></script>
 </body>
 </html>

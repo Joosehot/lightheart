@@ -61,6 +61,13 @@ class VoiceTurnIn(BaseModel):
     chat_id: Optional[str] = None
 
 
+class VoiceSettingsIn(BaseModel):
+    voice: str = ""
+    style: str = "friend"
+    custom: str = ""
+    speed: str = "normal"
+
+
 class VoiceOpsIn(BaseModel):
     ops: list = []
     board_id: Optional[str] = None

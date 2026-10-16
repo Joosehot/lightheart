@@ -15,7 +15,8 @@ from fastapi.staticfiles import StaticFiles
 from . import ops, styles
 from .db import DB
 from .llm.base import LLMProvider, NoKeyProvider
-from .models import BookIn, ChatIn, NoteFields, SpeakIn, TitleIn, VoiceOpsIn, VoiceSessionIn, VoiceTurnIn
+from .models import BookIn, ChatIn, NoteFields, SpeakIn, TitleIn, VoiceOpsIn, VoiceSessionIn, VoiceSettingsIn, VoiceTurnIn
+from .voice import SPEECH_STYLES, SPEEDS, clean_settings, manner, voices_for
 
 log = logging.getLogger("lightheart")
 ROOT = Path(__file__).resolve().parent.parent
@@ -335,8 +336,9 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
         from .llm.prompts import board_context, voice_prompt
 
         b, c = resolve(body.board_id, body.chat_id)
+        chosen = voice_settings()
         history = "\n".join(f"{m.role}: {m.content}" for m in db.messages(c["id"], HISTORY))
-        instructions = voice_prompt() + "\n" + board_context(ops.board_state(db.notes(b["id"])))
+        instructions = voice_prompt() + manner(chosen) + "\n" + board_context(ops.board_state(db.notes(b["id"])))
         if history:
             instructions += "\n\nThe conversation so far (typed or spoken):\n" + history
         props = TOOL["input_schema"]["properties"]
@@ -344,10 +346,51 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
                 "description": "Change the user's idea board: create cards, update one, or nothing.",
                 "parameters": {"type": "object", "properties": {"ops": props["ops"]}, "required": ["ops"]}}
         try:
-            return await app.state.live.realtime_key(instructions, tool)
+            return await app.state.live.realtime_key(instructions, tool, chosen["voice"])
         except Exception as e:
             log.exception("realtime session failed")
             raise HTTPException(502, f"Couldn't start voice mode ({e}).")
+
+    # the voice the user picked: which voice, how it talks (a comic-book character or their own words), how fast
+
+    def voice_settings(given=None):
+        engine = app.state.live.engine if app.state.live else "browser"
+        return clean_settings(engine, given if given is not None else db.setting(f"voice:{engine}", {}))
+
+    @app.get("/api/voice/settings")
+    def get_voice_settings():
+        engine = app.state.live.engine if app.state.live else "browser"
+        return {
+            "engine": engine,
+            "voices": [{"id": v, "label": f"{v} · {what}"} for v, what in voices_for(engine)] if app.state.live else [],
+            "styles": [{"id": k, "label": label} for k, (label, _) in SPEECH_STYLES.items()] + [{"id": "custom", "label": "Your own"}],
+            "speeds": list(SPEEDS),
+            "current": voice_settings(),
+        }
+
+    @app.put("/api/voice/settings")
+    def put_voice_settings(body: VoiceSettingsIn):
+        engine = app.state.live.engine if app.state.live else "browser"
+        s = voice_settings(body.model_dump())
+        db.set_setting(f"voice:{engine}", s)
+        return s
+
+    previews = {}  # (engine, settings) -> (audio, type): each sample is paid for once
+
+    @app.post("/api/voice/preview")
+    async def voice_preview(body: VoiceSettingsIn):
+        if not app.state.live:
+            raise HTTPException(400, "Voice needs GEMINI_API_KEY or OPENAI_API_KEY in .env.")
+        s = voice_settings(body.model_dump())
+        key = (app.state.live.engine, tuple(sorted(s.items())))
+        if key not in previews:
+            try:
+                previews[key] = await app.state.live.preview(s)
+            except Exception as e:
+                log.exception("voice preview failed")
+                raise HTTPException(502, f"Couldn't play a sample ({e}).")
+        data, kind = previews[key]
+        return Response(content=data, media_type=kind)
 
     @app.post("/api/voice/turn")
     def voice_turn(body: VoiceTurnIn):
