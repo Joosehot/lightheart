@@ -72,7 +72,9 @@ class AnthropicProvider(LLMProvider):
                 system=system,
                 messages=[{"role": m["role"], "content": m["content"]} for m in messages],
                 tools=[TOOL],
-                tool_choice={"type": "tool", "name": "update_board"},
+                # forcing the tool ("tool"/"any") is not supported by every model: the prompt asks for it,
+                # and a reply without the call is shown as text with no card
+                tool_choice={"type": "auto"},
             )
         except Exception as e:  # network, auth, rate limit: the page still works
             log.exception("the model call failed")
