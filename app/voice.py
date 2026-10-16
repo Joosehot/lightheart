@@ -9,8 +9,12 @@ import os
 
 TRANSCRIBE_MODEL = os.environ.get("LIGHTHEART_STT_MODEL", "gpt-4o-mini-transcribe")
 SPEECH_MODEL = os.environ.get("LIGHTHEART_TTS_MODEL", "gpt-4o-mini-tts")
-VOICE = os.environ.get("LIGHTHEART_VOICE", "coral")
+VOICE = os.environ.get("LIGHTHEART_VOICE", "marin")  # OpenAI's newest, most natural voice (also: cedar)
 STYLE = "Warm, calm and curious, like a thoughtful friend who loves ideas. Natural pace, not too slow."
+ACCENT = {
+    "fi": "Speak Finnish like a native speaker from Finland: Finnish vowels and rhythm, stress on the first syllable, no English accent.",
+    "en": "Speak natural, relaxed English.",
+}
 
 
 class Voice:
@@ -32,7 +36,7 @@ class OpenAIVoice(Voice):
         return (r.text or "").strip()
 
     async def speak(self, text, lang):
-        r = await self.client.audio.speech.create(model=SPEECH_MODEL, voice=VOICE, input=text[:4000], instructions=STYLE, response_format="mp3")
+        r = await self.client.audio.speech.create(model=SPEECH_MODEL, voice=VOICE, input=text[:4000], instructions=f"{STYLE} {ACCENT.get(lang, '')}".strip(), response_format="mp3")
         data = getattr(r, "content", None)
         if data is None:
             data = await r.aread()

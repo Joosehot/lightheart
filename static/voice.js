@@ -15,6 +15,8 @@
   let listening = false;
   let stopNow = null;   // stops the current listening
   let playing = null;   // the reply being played
+  // which engine the server has; nothing listens or speaks before this is known
+  const ready = fetch("/api/voice").then(r => r.json()).then(j => { engine = j.engine; }).catch(() => {});
 
   function note(text) { $("voiceNote").textContent = text || ""; }
 
@@ -131,7 +133,8 @@
     rec.start();
   }
 
-  function listen() {
+  async function listen() {
+    await ready;
     if (!voiceOn || listening) return;
     stopSpeaking();
     if (engine === "openai") listenServer(); else listenBrowser();
@@ -143,13 +146,17 @@
     const r = await fetch("/api/voice/speak", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text, lang }) });
     if (!r.ok) throw new Error("speak failed");
     const url = URL.createObjectURL(await r.blob());
-    await new Promise(resolve => {
-      playing = new Audio(url);
-      playing.onended = playing.onerror = playing.onpause = resolve;
-      playing.play().catch(resolve);
-    });
-    URL.revokeObjectURL(url);
-    playing = null;
+    try {
+      await new Promise((resolve, reject) => {
+        playing = new Audio(url);
+        playing.onended = playing.onpause = resolve;
+        playing.onerror = () => reject(new Error("the audio didn't play"));
+        playing.play().catch(reject);
+      });
+    } finally {
+      URL.revokeObjectURL(url);
+      playing = null;
+    }
   }
 
   function speakBrowser(text, lang) {
@@ -166,11 +173,13 @@
 
   async function speak(text) {
     if (!text) return;
+    await ready;
     const lang = langOf(text);
     note("Speaking…");
-    try { if (engine === "openai") await speakServer(text, lang); else await speakBrowser(text, lang); }
-    catch (e) { if (voiceOn) await speakBrowser(text, lang); }
-    note("");
+    if (engine !== "openai") { await speakBrowser(text, lang); note(""); return; }
+    // the OpenAI voice only: never Chrome's own voice in its place
+    try { await speakServer(text, lang); note(""); }
+    catch (e) { console.error("voice:", e); note(`Couldn't play the voice (${e.message}).`); }
   }
 
   // a reply came: with voice on it is said aloud, then it listens again
@@ -195,7 +204,6 @@
     paint();
     listen();
   };
-  fetch("/api/voice").then(r => r.json()).then(j => { engine = j.engine; }).catch(() => {});
   if ("speechSynthesis" in window) speechSynthesis.getVoices();
   paint();
 })();
