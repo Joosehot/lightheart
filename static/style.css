@@ -192,3 +192,92 @@ body {
 .arts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .art { border: 1.5px solid var(--line); background: #fff; border-radius: 999px; padding: 5px 12px; font: 600 13px var(--body-font); color: var(--ink); cursor: pointer; }
 .art.on { border-color: var(--accent); background: #fff1e8; }
+
+/* ---- each art style its own reader ------------------------------------------------------------ */
+/* manga: white paper, heavy black frames, oval balloons, black narration boxes */
+.reader[data-theme="manga"] { background: #111; background-image: none; }
+.reader[data-theme="manga"] .sheet-page { background: #fff; }
+.reader[data-theme="manga"] .panels { gap: 7px; }
+.reader[data-theme="manga"] .panel { border: 4px solid #000; background: #eee; }
+.reader[data-theme="manga"] .panel img { filter: grayscale(1) contrast(1.15); }
+.reader[data-theme="manga"] .caption { background: #000; color: #fff; border-color: #000; box-shadow: none; font: 700 13px/1.25 'Comic Neue', sans-serif; }
+.reader[data-theme="manga"] .bubble { border-radius: 50%; padding: 10px 14px; border: 2px solid #000; box-shadow: none; text-align: center; font: 700 12px/1.2 'Comic Neue', sans-serif; }
+.reader[data-theme="manga"] .bubble .who { display: none; }
+.reader[data-theme="manga"] .cover-title { font-family: 'Bangers', sans-serif; background: #fff; transform: skew(-6deg); border-width: 4px; }
+.reader[data-theme="manga"] .folio { color: #555; }
+
+/* ligne claire: clean white page, thin even lines, flat yellow captions, upper-case lettering */
+.reader[data-theme="ligne-claire"] { background: #cfdbe6; background-image: linear-gradient(#dfe8f0, #b9c9d8); color: #1d2a36; }
+.reader[data-theme="ligne-claire"] .reader-top .muted, .reader[data-theme="ligne-claire"] .reader-nav { color: #43566a; }
+.reader[data-theme="ligne-claire"] .ghost, .reader[data-theme="ligne-claire"] .turn { color: #1d2a36; border-color: rgba(0,0,0,.25); }
+.reader[data-theme="ligne-claire"] .sheet-page { background: #fff; }
+.reader[data-theme="ligne-claire"] .panels { gap: 12px; }
+.reader[data-theme="ligne-claire"] .panel { border: 2px solid #1d1d1d; }
+.reader[data-theme="ligne-claire"] .caption { background: #ffe14d; border: 1.5px solid #1d1d1d; box-shadow: none; text-transform: uppercase; font: 700 11px/1.3 'Comic Neue', sans-serif; letter-spacing: .3px; }
+.reader[data-theme="ligne-claire"] .bubble { border: 1.5px solid #1d1d1d; border-radius: 22px; box-shadow: none; text-transform: uppercase; font: 700 11px/1.3 'Comic Neue', sans-serif; letter-spacing: .3px; }
+.reader[data-theme="ligne-claire"] .bubble .who { display: none; }
+.reader[data-theme="ligne-claire"] .cover-title { font: 700 40px/1 'Comic Neue', sans-serif; text-transform: uppercase; background: #fff; border-width: 2px; transform: none; box-shadow: none; color: #c92a2a; }
+
+/* noir: black page, white hairline frames, typewriter captions, one red accent */
+.reader[data-theme="noir"] { background: #050505; background-image: radial-gradient(circle at 50% 30%, #1d1d1d, #050505 70%); }
+.reader[data-theme="noir"] .sheet-page { background: #0d0d0d; color: #e9e4da; }
+.reader[data-theme="noir"] .panels { gap: 9px; }
+.reader[data-theme="noir"] .panel { border: 2px solid #e9e4da; background: #1a1a1a; }
+.reader[data-theme="noir"] .panel img { filter: contrast(1.1) saturate(.7); }
+.reader[data-theme="noir"] .drawing { background: linear-gradient(100deg, #161616 30%, #262626 50%, #161616 70%) 0 0 / 300% 100%; color: #8a8a8a; }
+.reader[data-theme="noir"] .caption { background: #e9e4da; color: #111; border: none; box-shadow: none; font: 13px/1.3 'Special Elite', monospace; }
+.reader[data-theme="noir"] .bubble { border: 1.5px solid #111; border-radius: 4px; box-shadow: none; font: 13px/1.3 'Special Elite', monospace; }
+.reader[data-theme="noir"] .bubble .who { color: #c92a2a; }
+.reader[data-theme="noir"] .cover-title { font: 42px/1 'Special Elite', monospace; background: #0d0d0d; color: #e9e4da; border-color: #c92a2a; transform: none; box-shadow: none; }
+.reader[data-theme="noir"] .cover-who { background: #c92a2a; color: #fff; border: none; }
+.reader[data-theme="noir"] .folio { color: #777; }
+.reader[data-theme="noir"] .reader-top #readerTitle { font: 26px 'Special Elite', monospace; }
+
+/* picture book: soft rounded pictures without frames, storybook text, pastel room */
+.reader[data-theme="picture-book"] { background: #fde7ef; background-image: radial-gradient(circle at 20% 20%, #fff4d6, transparent 40%), radial-gradient(circle at 80% 70%, #e3f1fb, transparent 45%); color: #4a3b52; }
+.reader[data-theme="picture-book"] .reader-top .muted, .reader[data-theme="picture-book"] .reader-nav { color: #8a6f8f; }
+.reader[data-theme="picture-book"] .ghost, .reader[data-theme="picture-book"] .turn { color: #4a3b52; border-color: rgba(74,59,82,.3); }
+.reader[data-theme="picture-book"] .sheet-page { background: #fffaf2; border-radius: 18px !important; }
+.reader[data-theme="picture-book"] .panels { gap: 14px; }
+.reader[data-theme="picture-book"] .panel { border: none; border-radius: 20px; box-shadow: 0 6px 16px rgba(120, 80, 120, .18); }
+.reader[data-theme="picture-book"] .caption { background: rgba(255, 250, 242, .92); border: none; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.08); font: 600 15px/1.3 'Fredoka', sans-serif; color: #4a3b52; max-width: 90%; }
+.reader[data-theme="picture-book"] .bubble { border: none; border-radius: 20px; background: #fff; box-shadow: 0 3px 10px rgba(120, 80, 120, .2); font: 500 14px/1.3 'Fredoka', sans-serif; color: #4a3b52; }
+.reader[data-theme="picture-book"] .bubble::after { border-top-color: #fff; }
+.reader[data-theme="picture-book"] .bubble.b1::after { border-bottom-color: #fff; }
+.reader[data-theme="picture-book"] .bubble .who { color: #c2558a; }
+.reader[data-theme="picture-book"] .cover-title { font: 600 40px/1.05 'Fredoka', sans-serif; border: none; border-radius: 18px; transform: rotate(-2deg); color: #c2558a; box-shadow: 0 6px 18px rgba(120, 80, 120, .25); }
+.reader[data-theme="picture-book"] .cover-who { border: none; border-radius: 999px; background: #fff4d6; }
+.reader[data-theme="picture-book"] .reader-top #readerTitle { font: 600 26px 'Fredoka', sans-serif; }
+
+/* the small previews in the maker */
+.art { display: inline-flex; align-items: center; gap: 7px; }
+.art-prev { position: relative; display: inline-grid; grid-template: 1fr 1fr / 1fr 1fr; gap: 2px; width: 30px; height: 38px; padding: 3px; background: #fbf6ec; border-radius: 2px; box-shadow: 0 1px 3px rgba(0,0,0,.2); }
+.art-prev i { display: block; border: 1.5px solid #2a241e; background: #e8d9b8; }
+.art-prev i:first-child { grid-column: 1 / 3; }
+.art-prev b { position: absolute; right: -6px; top: -5px; font: 700 7px 'Comic Neue', sans-serif; background: #fff; border: 1px solid #2a241e; border-radius: 6px; padding: 0 2px; }
+.art-prev[data-theme="manga"] { background: #fff; }
+.art-prev[data-theme="manga"] i { border: 2px solid #000; background: #ddd; }
+.art-prev[data-theme="manga"] b { border-radius: 50%; }
+.art-prev[data-theme="ligne-claire"] { background: #fff; }
+.art-prev[data-theme="ligne-claire"] i { border-width: 1px; background: #9fd6ff; }
+.art-prev[data-theme="ligne-claire"] i:nth-child(2) { background: #ffe14d; }
+.art-prev[data-theme="noir"] { background: #0d0d0d; }
+.art-prev[data-theme="noir"] i { border-color: #e9e4da; background: #2a2a2a; }
+.art-prev[data-theme="noir"] i:nth-child(3) { background: #c92a2a; }
+.art-prev[data-theme="noir"] b { font-family: 'Special Elite', monospace; border-radius: 1px; }
+.art-prev[data-theme="picture-book"] { background: #fffaf2; border-radius: 5px; }
+.art-prev[data-theme="picture-book"] i { border: none; border-radius: 4px; background: #f7c6d9; }
+.art-prev[data-theme="picture-book"] i:nth-child(2) { background: #c5e3f6; }
+.art-prev[data-theme="picture-book"] b { border: none; box-shadow: 0 1px 2px rgba(0,0,0,.25); }
+
+/* ---- voice mode -------------------------------------------------------------------------------- */
+.mic { flex: none; width: 42px; border: 1.5px solid var(--line); background: #fff; border-radius: 12px; font-size: 18px; cursor: pointer; }
+.mic:hover { border-color: var(--accent); }
+.mic.listening { background: #ffe3e3; border-color: #e03131; animation: listen 1.1s ease-in-out infinite; }
+.voice-row { display: flex; align-items: center; gap: 8px; padding: 0 14px 10px; margin-top: -4px; }
+.voice-btn { border: none; background: none; padding: 2px 4px; font: 600 12px var(--body-font); color: var(--ink-soft); cursor: pointer; border-radius: 6px; }
+.voice-btn:hover { color: var(--ink); background: var(--paper-2); }
+.voice-btn.on { color: var(--accent); }
+#voiceLang { text-transform: uppercase; border: 1px solid var(--line); }
+.voice-note { font-size: 12px; color: var(--ink-soft); margin-left: auto; }
+@keyframes listen { 0%, 100% { box-shadow: 0 0 0 0 rgba(224, 49, 49, .35); } 50% { box-shadow: 0 0 0 7px rgba(224, 49, 49, 0); } }

@@ -238,6 +238,7 @@ async function send(text) {
     const r = await api("POST", "/api/chat", { content: text });
     thinking.remove();
     if (r.reply) addMessage("assistant", r.reply);
+    window.dispatchEvent(new CustomEvent("lightheart:reply", { detail: { reply: r.reply } })); // voice.js reads it aloud
     for (const n of r.notes_changed) {
       const how = notes.has(n.id) ? "changed" : "enter";
       notes.set(n.id, n);

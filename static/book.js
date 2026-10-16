@@ -9,7 +9,7 @@
 
   const lettering = document.createElement("link");
   lettering.rel = "stylesheet";
-  lettering.href = "https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Bangers&display=swap";
+  lettering.href = "https://fonts.googleapis.com/css2?family=Comic+Neue:wght@400;700&family=Bangers&family=Special+Elite&family=Patrick+Hand&family=Fredoka:wght@500;600&display=swap";
   document.head.appendChild(lettering);
 
   // ---- making one -----------------------------------------------------------------------------
@@ -36,7 +36,9 @@
 
   function renderArts() {
     const names = { watercolor: "Warm watercolor", manga: "Manga", "ligne-claire": "Ligne claire", noir: "Noir", "picture-book": "Picture book" };
-    $("bookArts").innerHTML = Object.keys(ART.styles).map(k => `<button type="button" class="art ${art === k ? "on" : ""}" data-art="${k}" title="${esc(ART.styles[k])}">${names[k] || k}</button>`).join("");
+    // each style with a small page of its own look
+    $("bookArts").innerHTML = Object.keys(ART.styles).map(k => `<button type="button" class="art ${art === k ? "on" : ""}" data-art="${k}" title="${esc(ART.styles[k])}">
+      <span class="art-prev" data-theme="${k}"><i></i><i></i><i></i><b>Hei!</b></span>${names[k] || k}</button>`).join("");
     $("bookArts").querySelectorAll("[data-art]").forEach(b => b.onclick = () => { art = b.dataset.art; $("bookArt").value = ""; renderArts(); });
   }
 
@@ -130,6 +132,8 @@
     page = Math.max(0, Math.min(page, sheets.length - 1));
     if (per === 2 && page % 2) page -= 1;
     $("readerTitle").textContent = book.title;
+    // the reader dresses in the book's art style (a style of the user's own words: the watercolor one)
+    $("reader").dataset.theme = ART && ART.styles[book.art_style] ? book.art_style : (["watercolor", "manga", "ligne-claire", "noir", "picture-book"].includes(book.art_style) ? book.art_style : "watercolor");
     $("spread").innerHTML = sheets.slice(page, page + per).map(sheetHtml).join("");
     $("spread").classList.toggle("single", per === 1);
     $("pageNo").textContent = page === 0 ? "cover" : `${page}${per === 2 && page + 1 < sheets.length ? "–" + (page + 1) : ""} / ${sheets.length - 1}`;

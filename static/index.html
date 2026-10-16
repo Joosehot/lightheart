@@ -25,9 +25,15 @@
   <button class="fold" id="fold" title="Hide or show the conversation" aria-label="Hide or show the conversation">⌄</button>
   <div class="messages" id="messages"></div>
   <form class="composer" id="composer">
+    <button type="button" class="mic" id="mic" title="Speak (click again to stop)" aria-label="Speak">🎤</button>
     <textarea id="input" rows="1" placeholder="What's on your mind?" autocomplete="off"></textarea>
     <button type="submit" id="send" aria-label="Send">Send</button>
   </form>
+  <div class="voice-row">
+    <button type="button" class="voice-btn" id="voiceMode" title="Voice mode: it reads its replies aloud and listens again, like a call">🔈 voice mode off</button>
+    <button type="button" class="voice-btn" id="voiceLang" title="The language you speak">fi</button>
+    <span class="voice-note" id="voiceNote"></span>
+  </div>
 </section>
 <div class="popover" id="popover" hidden></div>
 <div class="toast" id="toast" hidden></div>
@@ -75,5 +81,6 @@
 </div>
 <script src="/static/app.js"></script>
 <script src="/static/book.js"></script>
+<script src="/static/voice.js"></script>
 </body>
 </html>
