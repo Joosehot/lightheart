@@ -38,7 +38,54 @@ def test_page_and_board_load(tmp_path):
     assert r.status_code == 200 and "Lightheart" in r.text
     assert c.get("/static/app.js").status_code == 200
     assert c.get("/static/style.css").status_code == 200
-    assert c.get("/api/board").json() == {"notes": [], "messages": []}
+    b = c.get("/api/board").json()
+    assert b["notes"] == [] and b["messages"] == [] and b["board"]["title"] and b["chat"]["id"]
+
+
+def test_ideas_have_their_own_boards_and_past_chats(tmp_path):
+    c, provider = make(lambda m, s: IDEA if "lighthouse" in m[-1]["content"] else SMALL_TALK, tmp_path)
+    first = c.get("/api/board").json()
+    c.post("/api/chat", json={"content": "a lighthouse keeper", "board_id": first["board"]["id"], "chat_id": first["chat"]["id"]})
+    # a second idea: its own empty board and chat
+    second = c.post("/api/boards", json={"title": "Space cat"}).json()
+    b2 = c.get(f"/api/board?board_id={second['board']['id']}").json()
+    assert b2["notes"] == [] and b2["messages"] == [] and b2["board"]["title"] == "Space cat"
+    c.post("/api/chat", json={"content": "hi there", "board_id": second["board"]["id"], "chat_id": second["chat"]["id"]})
+    # the model only saw the second idea's cards (none)
+    assert provider.calls[-1][1] == []
+    # a new chat in the first idea; the past one is still there, named by its first message
+    new = c.post(f"/api/boards/{first['board']['id']}/chats").json()
+    chats = {ch["id"]: ch for ch in next(b for b in c.get("/api/boards").json() if b["id"] == first["board"]["id"])["chats"]}
+    assert first["chat"]["id"] in chats and new["id"] in chats
+    assert chats[first["chat"]["id"]]["title"] == "a lighthouse keeper" and chats[first["chat"]["id"]]["messages"] == 2
+    past = c.get(f"/api/board?board_id={first['board']['id']}&chat_id={first['chat']['id']}").json()
+    assert len(past["messages"]) == 2 and len(past["notes"]) == 1
+    fresh = c.get(f"/api/board?board_id={first['board']['id']}&chat_id={new['id']}").json()
+    assert fresh["messages"] == [] and len(fresh["notes"]) == 1  # same idea, same cards
+    # rename, delete
+    assert c.patch(f"/api/boards/{second['board']['id']}", json={"title": "Avaruuskissa"}).json()["title"] == "Avaruuskissa"
+    assert c.delete(f"/api/chats/{new['id']}").status_code == 200
+    assert c.delete(f"/api/boards/{second['board']['id']}").status_code == 200
+    assert [b["title"] for b in c.get("/api/boards").json()] == [first["board"]["title"]]
+
+
+def test_an_old_one_board_database_becomes_a_first_idea(tmp_path):
+    import sqlite3
+
+    path = tmp_path / "old.db"
+    con = sqlite3.connect(path)
+    con.executescript("""create table notes (id text primary key, title text not null default '', body text not null default '', highlights text not null default '[]',
+        palette text not null, font text not null, sticker text, tape integer not null default 1, tags text not null default '[]', x real not null default 0,
+        y real not null default 0, rotation real not null default 0, created_at text not null, updated_at text not null, source_message_id text);
+      create table messages (id text primary key, role text not null, content text not null, created_at text not null);
+      insert into notes (id, title, palette, font, created_at, updated_at) values ('n1', 'Old idea', 'sky', 'caveat', '2026', '2026');
+      insert into messages values ('m1', 'user', 'hello', '2026');""")
+    con.commit()
+    con.close()
+    app = create_app(provider=FakeProvider([]), db_path=str(path))
+    b = TestClient(app).get("/api/board").json()
+    assert b["board"]["title"] == "My ideas" and b["chat"]["title"] == "First chat"
+    assert [n["title"] for n in b["notes"]] == ["Old idea"] and [m["content"] for m in b["messages"]] == ["hello"]
 
 
 def test_idea_makes_a_card_small_talk_none(tmp_path):
@@ -174,3 +221,23 @@ def test_live_smoke(tmp_path):
     r = c.post("/api/chat", json={"content": "Majakanvartija, joka vastaa hukkuneisiin kirjeisiin aina eri nimellä."}).json()
     assert r["reply"]
     print("reply:", r["reply"], "cards:", [(n["title"], n["palette"]) for n in r["notes_changed"]])
+
+
+def test_voice_transcribes_and_speaks(tmp_path):
+    from app.voice import FakeVoice
+
+    voice = FakeVoice(heard="majakanvartija")
+    c = TestClient(create_app(provider=FakeProvider([]), db_path=str(tmp_path / "t.db"), voice=voice))
+    assert c.get("/api/voice").json() == {"engine": "openai"}
+    r = c.post("/api/voice/transcribe", files={"audio": ("speech.webm", b"\x1aE\xdf\xa3fake", "audio/webm")}, data={"lang": "fi"})
+    assert r.json() == {"text": "majakanvartija"}
+    s = c.post("/api/voice/speak", json={"text": "Hei!", "lang": "fi"})
+    assert s.status_code == 200 and s.headers["content-type"] == "audio/mpeg" and voice.spoken == ["Hei!"]
+
+
+def test_no_openai_key_means_browser_voice(tmp_path):
+    app = create_app(provider=FakeProvider([]), db_path=str(tmp_path / "t.db"))
+    app.state.voice = None
+    c = TestClient(app)
+    assert c.get("/api/voice").json() == {"engine": "browser"}
+    assert c.post("/api/voice/speak", json={"text": "x"}).status_code == 400

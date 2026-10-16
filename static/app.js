@@ -6,6 +6,8 @@ let STYLES = null;
 let notes = new Map();
 let selected = null;
 let busy = false;
+// the idea (board) and the chat open now
+let CUR = { board: null, chat: null };
 
 const EXAMPLE = "A lighthouse keeper who collects lost letters and answers them, but signs every reply with a different name.";
 
@@ -235,7 +237,8 @@ async function send(text) {
   $("input").style.height = "auto";
   const thinking = addMessage("assistant", "thinking…", "thinking");
   try {
-    const r = await api("POST", "/api/chat", { content: text });
+    const r = await api("POST", "/api/chat", { content: text, board_id: CUR.board.id, chat_id: CUR.chat.id });
+    if (r.chat) { CUR.chat = r.chat; window.renderSidebar && renderSidebar(); }
     thinking.remove();
     if (r.reply) addMessage("assistant", r.reply);
     window.dispatchEvent(new CustomEvent("lightheart:reply", { detail: { reply: r.reply } })); // voice.js reads it aloud
@@ -252,6 +255,29 @@ async function send(text) {
   busy = false; $("send").disabled = false; $("input").focus();
 }
 
+// ---- ideas and chats -------------------------------------------------------------------------
+
+// open an idea's board and one of its chats (by default: the last idea, its latest chat)
+async function openIdea(boardId, chatId) {
+  const q = new URLSearchParams();
+  if (boardId) q.set("board_id", boardId);
+  if (chatId) q.set("chat_id", chatId);
+  let b;
+  try { b = await api("GET", "/api/board?" + q); }
+  catch (e) { b = await api("GET", "/api/board"); } // the remembered one is gone: the default
+  CUR = { board: b.board, chat: b.chat };
+  localStorage.setItem("lh-board", b.board.id);
+  localStorage.setItem("lh-chat", b.chat.id);
+  select(null);
+  document.querySelectorAll(".card").forEach(el => el.remove());
+  notes.clear();
+  for (const n of b.notes) { notes.set(n.id, n); renderCard(n); }
+  renderMessages(b.messages);
+  document.title = `${b.board.title} · Lightheart`;
+  window.renderSidebar && renderSidebar();
+  window.lightheartViews && window.lightheartViews.render();
+}
+
 // ---- start -------------------------------------------------------------------------------------
 
 async function start() {
@@ -260,9 +286,7 @@ async function start() {
   link.rel = "stylesheet";
   link.href = `https://fonts.googleapis.com/css2?family=${STYLES.google_fonts}&display=swap`;
   document.head.appendChild(link);
-  const b = await api("GET", "/api/board");
-  for (const n of b.notes) { notes.set(n.id, n); renderCard(n); }
-  renderMessages(b.messages);
+  await openIdea(localStorage.getItem("lh-board"), localStorage.getItem("lh-chat"));
 
   $("composer").onsubmit = e => { e.preventDefault(); send($("input").value); };
   $("input").addEventListener("keydown", e => {
@@ -273,7 +297,7 @@ async function start() {
   $("input").addEventListener("input", grow);
   $("fold").onclick = () => $("island").classList.toggle("folded");
   $("addCard").onclick = async () => {
-    const n = await api("POST", "/api/notes", {});
+    const n = await api("POST", "/api/notes", { board_id: CUR.board.id });
     notes.set(n.id, n);
     const el = renderCard(n, "enter");
     revealCard(n.id);

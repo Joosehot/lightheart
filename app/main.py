@@ -8,14 +8,14 @@ import logging
 import os
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from . import ops, styles
 from .db import DB
 from .llm.base import LLMProvider, NoKeyProvider
-from .models import BookIn, ChatIn, NoteFields
+from .models import BookIn, ChatIn, NoteFields, SpeakIn, TitleIn
 
 log = logging.getLogger("lightheart")
 ROOT = Path(__file__).resolve().parent.parent
@@ -60,7 +60,15 @@ def default_maker():
     return OpenAIImageMaker()
 
 
-def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, maker=None, image_dir: str = None, draw_now=False) -> FastAPI:
+def default_voice():
+    if not os.environ.get("OPENAI_API_KEY"):
+        return None
+    from .voice import OpenAIVoice
+
+    return OpenAIVoice()
+
+
+def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, maker=None, image_dir: str = None, draw_now=False, voice=None) -> FastAPI:
     """draw_now: draw a book's pictures before answering (tests); otherwise they are drawn in the background."""
     app = FastAPI(title="Lightheart")
     db = DB(db_path or os.environ.get("LIGHTHEART_DB", "lightheart.db"))
@@ -71,10 +79,72 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
     images = Path(image_dir or os.environ.get("LIGHTHEART_IMAGES", ROOT / "images"))
     images.mkdir(parents=True, exist_ok=True)
     app.state.tasks = set()
+    app.state.voice = voice if voice is not None else default_voice()
+
+    # ---- ideas (boards) and their chats ---------------------------------------------------------
+
+    def resolve(board_id=None, chat_id=None):
+        """The idea and the chat asked for; by default the idea worked on last and its latest chat."""
+        board = db.board(board_id) if board_id else db.default_board()
+        if board is None:
+            raise HTTPException(404, "no such idea")
+        chat = db.chat(chat_id) if chat_id else None
+        if chat is None or chat["board_id"] != board["id"]:
+            chats = db.chats(board["id"])
+            chat = chats[0] if chats else db.add_chat(board["id"])
+        return board, chat
 
     @app.get("/api/board")
-    def board():
-        return {"notes": [n.model_dump() for n in db.notes()], "messages": [m.model_dump() for m in db.messages()]}
+    def board(board_id: str = None, chat_id: str = None):
+        b, c = resolve(board_id, chat_id)
+        return {"board": b, "chat": c, "notes": [n.model_dump() for n in db.notes(b["id"])], "messages": [m.model_dump() for m in db.messages(c["id"])]}
+
+    @app.get("/api/boards")
+    def boards():
+        db.default_board()  # there is always at least one idea
+        return db.boards()
+
+    @app.post("/api/boards")
+    def new_board(body: TitleIn):
+        b = db.add_board(body.title or "New idea")
+        return {"board": b, "chat": db.chats(b["id"])[0]}
+
+    @app.patch("/api/boards/{board_id}")
+    def rename_board(board_id: str, body: TitleIn):
+        if not db.board(board_id):
+            raise HTTPException(404, "no such idea")
+        db.rename_board(board_id, body.title)
+        return db.board(board_id)
+
+    @app.delete("/api/boards/{board_id}")
+    def delete_board(board_id: str):
+        if not db.board(board_id):
+            raise HTTPException(404, "no such idea")
+        for bk in db.books(board_id):
+            for p in (db.book(bk["id"]) or {}).get("panels", []):
+                if p["image"]:
+                    (images / p["image"]).unlink(missing_ok=True)
+        db.delete_board(board_id)
+        return {"deleted": board_id}
+
+    @app.post("/api/boards/{board_id}/chats")
+    def new_chat(board_id: str):
+        if not db.board(board_id):
+            raise HTTPException(404, "no such idea")
+        return db.add_chat(board_id)
+
+    @app.patch("/api/chats/{chat_id}")
+    def rename_chat(chat_id: str, body: TitleIn):
+        if not db.chat(chat_id):
+            raise HTTPException(404, "no such chat")
+        db.rename_chat(chat_id, body.title)
+        return db.chat(chat_id)
+
+    @app.delete("/api/chats/{chat_id}")
+    def delete_chat(chat_id: str):
+        if not db.delete_chat(chat_id):
+            raise HTTPException(404, "no such chat")
+        return {"deleted": chat_id}
 
     @app.get("/api/styles")
     def get_styles():
@@ -85,10 +155,16 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
         text = body.content.strip()
         if not text:
             raise HTTPException(400, "empty message")
-        user = db.add_message("user", text)
-        recent = [{"role": m.role, "content": m.content} for m in db.messages(HISTORY)]
+        b, c = resolve(body.board_id, body.chat_id)
+        first = not db.messages(c["id"])
+        user = db.add_message("user", text, chat_id=c["id"])
+        if first and c["title"] in ("New chat", "First chat"):  # a chat is named by its first message
+            db.rename_chat(c["id"], " ".join(text.split()[:6])[:60])
+        db.touch_chat(c["id"])
+        db.touch_board(b["id"])
+        recent = [{"role": m.role, "content": m.content} for m in db.messages(c["id"], HISTORY)]
         try:
-            result = await app.state.provider.respond(recent, ops.board_state(db.notes()))
+            result = await app.state.provider.respond(recent, ops.board_state(db.notes(b["id"])))
         except Exception as e:  # a provider that raises must not break the page
             log.exception("the provider failed")
             from .llm.base import AIResult
@@ -96,19 +172,23 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
             result = AIResult(reply="", error=str(e))
         if result.error:
             log.warning("model: %s", result.error)
-        changed = ops.apply(db, result.ops, source_message_id=user.id) if not result.error or result.ops else []
+        changed = ops.apply(db, result.ops, source_message_id=user.id, board_id=b["id"]) if not result.error or result.ops else []
         reply = (result.reply or "").strip() or ("Sorry, I lost my train of thought there. Try again?" if result.error else "")
-        assistant = db.add_message("assistant", reply) if reply else None
+        assistant = db.add_message("assistant", reply, chat_id=c["id"]) if reply else None
         return {
             "reply": reply,
             "message": assistant.model_dump() if assistant else None,
             "user_message": user.model_dump(),
             "notes_changed": [n.model_dump() for n in changed],
+            "board_id": b["id"],
+            "chat": db.chat(c["id"]),
         }
 
     @app.post("/api/notes")
     def create_note(fields: NoteFields):
-        n = ops.new_note(fields.model_dump(exclude_none=True), db.notes())
+        b, _ = resolve(fields.board_id)
+        n = ops.new_note(fields.model_dump(exclude_none=True), db.notes(b["id"]), board_id=b["id"])
+        db.touch_board(b["id"])
         return db.save_note(n).model_dump()
 
     @app.patch("/api/notes/{note_id}")
@@ -126,7 +206,12 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
 
     @app.get("/api/export")
     def export():
-        return JSONResponse({"app": "lightheart", "version": 0, "notes": [n.model_dump() for n in db.notes()], "messages": [m.model_dump() for m in db.messages()]})
+        out = []
+        for b in db.boards():
+            out.append({**b, "notes": [n.model_dump() for n in db.notes(b["id"])],
+                        "chats": [{**c, "messages": [m.model_dump() for m in db.messages(c["id"])]} for c in db.chats(b["id"])]})
+        return JSONResponse({"app": "lightheart", "version": 1, "ideas": out,
+                             "notes": [n.model_dump() for n in db.notes()], "messages": [m.model_dump() for m in db.messages()]})
 
     # ---- comic books ----------------------------------------------------------------------------
 
@@ -160,7 +245,8 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
             raise HTTPException(400, "Set ANTHROPIC_API_KEY in .env to write the story.")
         if app.state.maker is None:
             raise HTTPException(400, "Set OPENAI_API_KEY in .env to draw the pictures.")
-        notes = db.notes()
+        board_obj, _ = resolve(body.board_id)
+        notes = db.notes(board_obj["id"])
         if body.note_ids is not None:  # the cards the user picked (none picked: none)
             notes = [n for n in notes if n.id in set(body.note_ids)]
         if not notes and not body.direction.strip():
@@ -177,13 +263,13 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
             raise HTTPException(502, f"The story couldn't be written ({type(e).__name__}). Try again?")
         if script is None:
             raise HTTPException(502, "The story came back empty. Try again?")
-        book_id = db.add_book(script, body.direction.strip(), art)
+        book_id = db.add_book(script, body.direction.strip(), art, board_id=board_obj["id"])
         await drawing(book_id)
         return db.book(book_id)
 
     @app.get("/api/books")
-    def list_books():
-        return db.books()
+    def list_books(board_id: str = None):
+        return db.books(board_id)
 
     @app.get("/api/books/{book_id}")
     def get_book(book_id: str):
@@ -213,6 +299,38 @@ def create_app(provider: LLMProvider = None, db_path: str = None, writer=None, m
         db.set_panel(panel_id, status="waiting")
         await drawing(p["book_id"], only=panel_id)
         return db.panel(panel_id)
+
+    # ---- voice ------------------------------------------------------------------------------------
+
+    @app.get("/api/voice")
+    def voice_engine():
+        return {"engine": "openai" if app.state.voice else "browser"}
+
+    @app.post("/api/voice/transcribe")
+    async def transcribe(audio: UploadFile = File(...), lang: str = Form("fi")):
+        if not app.state.voice:
+            raise HTTPException(400, "No OPENAI_API_KEY: the browser's own speech is used.")
+        data = await audio.read()
+        if not data:
+            return {"text": ""}
+        if len(data) > 20 * 1024 * 1024:
+            raise HTTPException(413, "That recording is too long.")
+        try:
+            return {"text": await app.state.voice.transcribe(data, audio.filename or "speech.webm", lang[:2])}
+        except Exception as e:
+            log.exception("transcribing failed")
+            raise HTTPException(502, f"Couldn't hear that ({type(e).__name__}).")
+
+    @app.post("/api/voice/speak")
+    async def speak(body: SpeakIn):
+        if not app.state.voice:
+            raise HTTPException(400, "No OPENAI_API_KEY: the browser's own speech is used.")
+        try:
+            data = await app.state.voice.speak(body.text.strip()[:4000], body.lang[:2])
+        except Exception as e:
+            log.exception("speaking failed")
+            raise HTTPException(502, f"Couldn't speak ({type(e).__name__}).")
+        return Response(content=data, media_type="audio/mpeg")
 
     @app.get("/")
     def index():

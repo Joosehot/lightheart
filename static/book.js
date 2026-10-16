@@ -66,7 +66,7 @@
     }
     const own = $("bookArt").value.trim();
     try {
-      const r = await fetch("/api/books", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ note_ids: ids, direction: $("bookWish").value, pages: +$("bookPages").value, art_style: own || art }) });
+      const r = await fetch("/api/books", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ board_id: CUR.board.id, note_ids: ids, direction: $("bookWish").value, pages: +$("bookPages").value, art_style: own || art }) });
       const j = await r.json();
       if (!r.ok) throw new Error(j.detail || "Something went wrong.");
       $("bookMaker").hidden = true;
@@ -79,7 +79,7 @@
   }
 
   async function renderShelf() {
-    const books = await api("GET", "/api/books");
+    const books = await api("GET", "/api/books?board_id=" + encodeURIComponent(CUR.board.id));
     $("shelf").innerHTML = books.length ? `<h3>Your shelf</h3><div class="spines">${books.map(b => `
       <button class="spine" data-book="${b.id}">
         <span class="cover-img">${b.cover ? `<img src="/images/${b.cover}" alt="">` : ""}</span>

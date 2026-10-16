@@ -72,7 +72,7 @@ def free_spot(notes):
     return cx, cy + 40 * len(notes)
 
 
-def new_note(fields, notes, source_message_id=None, rng=random):
+def new_note(fields, notes, source_message_id=None, rng=random, board_id=None):
     f = clean_fields(fields)
     x, y = free_spot(notes)
     t = now()
@@ -92,6 +92,7 @@ def new_note(fields, notes, source_message_id=None, rng=random):
         created_at=t,
         updated_at=t,
         source_message_id=source_message_id,
+        board_id=board_id,
     )
 
 
@@ -105,7 +106,7 @@ def updated(note, fields):
     return Note(**data)
 
 
-def apply(db, ops, source_message_id=None):
+def apply(db, ops, source_message_id=None, board_id=None):
     """Apply the model's ops to the board; return the notes made or changed. Never raises."""
     changed = []
     if not isinstance(ops, list):
@@ -121,11 +122,11 @@ def apply(db, ops, source_message_id=None):
                 if not (str(fields.get("title") or "").strip() or str(fields.get("body") or "").strip()):
                     log.warning("an empty card, skipped")
                     continue
-                n = new_note(fields, db.notes(), source_message_id)
+                n = new_note(fields, db.notes(board_id), source_message_id, board_id=board_id)
                 changed.append(db.save_note(n))
             else:
                 note = db.note(str(op.get("id") or ""))
-                if note is None:
+                if note is None or (board_id is not None and note.board_id != board_id):
                     log.warning("update of an unknown card %r, skipped", op.get("id"))
                     continue
                 changed.append(db.save_note(updated(note, op.get("fields") or {})))

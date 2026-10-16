@@ -19,6 +19,7 @@ class NoteFields(BaseModel):
     x: Optional[float] = None
     y: Optional[float] = None
     rotation: Optional[float] = None
+    board_id: Optional[str] = None
 
 
 class Note(BaseModel):
@@ -37,6 +38,7 @@ class Note(BaseModel):
     created_at: str
     updated_at: str
     source_message_id: Optional[str] = None
+    board_id: Optional[str] = None
 
 
 class Message(BaseModel):
@@ -44,10 +46,22 @@ class Message(BaseModel):
     role: str  # "user" | "assistant"
     content: str
     created_at: str
+    chat_id: Optional[str] = None
 
 
 class ChatIn(BaseModel):
     content: str
+    board_id: Optional[str] = None
+    chat_id: Optional[str] = None
+
+
+class TitleIn(BaseModel):
+    title: str = ""
+
+
+class SpeakIn(BaseModel):
+    text: str
+    lang: str = "fi"
 
 
 class BookIn(BaseModel):
@@ -56,4 +70,5 @@ class BookIn(BaseModel):
     note_ids: Optional[list[str]] = None
     direction: str = ""
     pages: int = 4
+    board_id: Optional[str] = None
     art_style: str = ""  # a preset key (comics.ART_STYLES) or the user's own words

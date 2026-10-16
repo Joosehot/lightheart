@@ -54,7 +54,7 @@ DEFAULT_FONT = "caveat"
 MAX_TITLE_WORDS = 6
 MAX_BODY_WORDS = 60
 MAX_HIGHLIGHTS = 3
-MAX_OPS_PER_TURN = 3  # ASSUMPTION
+MAX_OPS_PER_TURN = 6  # one idea may become several notes
 
 # the board, in pixels: a card and where new ones go
 CARD_W, CARD_H = 250, 200

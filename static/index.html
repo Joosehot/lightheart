@@ -19,6 +19,12 @@
   <button data-view="postit">🟨 Post-it</button>
   <button data-view="notes">📝 Notes</button>
 </nav>
+<button class="ideas-toggle" id="ideasToggle" title="Your ideas and past chats" aria-label="Your ideas and past chats">☰</button>
+<aside class="ideas" id="ideas" hidden>
+  <div class="ideas-head"><h2>Ideas</h2><button class="close" id="ideasClose" aria-label="Close">×</button></div>
+  <button class="new-idea" id="newIdea">＋ New idea</button>
+  <div class="idea-list" id="ideaList"></div>
+</aside>
 <header class="brand">
   <h1>Lightheart</h1>
   <p>a box for your ideas</p>
@@ -90,5 +96,6 @@
 <script src="/static/book.js"></script>
 <script src="/static/voice.js"></script>
 <script src="/static/views.js"></script>
+<script src="/static/ideas.js"></script>
 </body>
 </html>
